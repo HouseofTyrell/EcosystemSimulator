@@ -168,6 +168,11 @@ export interface SimState {
   weatherCooldown: number;
   lineageCounts: Map<number, number>;
   soilHealth: Float32Array;
+  // Trait memory for adaptive reintroduction
+  herbTraitMemory: HerbivoreTraits[];
+  predTraitMemory: PredatorTraits[];
+  scavTraitMemory: ScavengerTraits[];
+  reintroductionTime: number;
 }
 
 export interface SimStats {

@@ -1,7 +1,7 @@
 // Main simulation orchestrator
 // Pure logic - no DOM, no rendering
 
-import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Corpse, WeatherState } from './types';
+import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Corpse, WeatherState, HerbivoreTraits, PredatorTraits, ScavengerTraits } from './types';
 import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
@@ -22,6 +22,20 @@ import {
 } from './agents';
 import { generateTerrain, getTerrainAt } from './terrain';
 import { updateEvents, getEventPlantMultiplier } from './events';
+
+/** Average trait snapshots for adaptive reintroduction. Returns null if no memory. */
+function avgTraits<T extends object>(memory: T[]): T | null {
+  if (memory.length === 0) return null;
+  const result = { ...memory[0] };
+  for (const key of Object.keys(result) as (keyof T & string)[]) {
+    let sum = 0;
+    for (let i = 0; i < memory.length; i++) {
+      sum += memory[i][key] as number;
+    }
+    (result as Record<string, number>)[key] = sum / memory.length;
+  }
+  return result;
+}
 
 interface SpawnQueue {
   remaining: number;
@@ -79,6 +93,10 @@ export class Simulation {
       weatherCooldown: 60,
       lineageCounts: new Map(),
       soilHealth: new Float32Array(fullConfig.plantGridCols * fullConfig.plantGridRows).fill(1.0),
+      herbTraitMemory: [],
+      predTraitMemory: [],
+      scavTraitMemory: [],
+      reintroductionTime: -Infinity,
     };
 
     this.spawnQueues = this.createSpawnQueues(fullConfig);
@@ -335,45 +353,54 @@ export class Simulation {
     state.predators.push(...newPreds);
     state.scavengers.push(...newScavs);
 
-    // Extinction recovery: if herbivores die out, slowly reintroduce
+    // Extinction recovery: adaptive reintroduction with trait memory
     if (state.herbivores.length === 0 && this.rng.next() < 0.02) {
-      for (let i = 0; i < 5; i++) {
-        state.herbivores.push(
-          createHerbivore(
-            state.nextId++,
-            this.rng.range(0, config.worldWidth),
-            this.rng.range(0, config.worldHeight),
-            this.rng,
-            config
-          )
+      const traits = avgTraits(state.herbTraitMemory) as HerbivoreTraits | null;
+      for (let i = 0; i < 15; i++) {
+        const h = createHerbivore(
+          state.nextId++,
+          this.rng.range(0, config.worldWidth),
+          this.rng.range(0, config.worldHeight),
+          this.rng,
+          config,
+          traits || undefined
         );
+        h.energy = config.herbivoreReproductionEnergy;
+        state.herbivores.push(h);
       }
+      state.reintroductionTime = state.time;
     }
-    if (state.predators.length === 0 && state.herbivores.length > 20 && this.rng.next() < 0.01) {
-      for (let i = 0; i < 2; i++) {
-        state.predators.push(
-          createPredator(
-            state.nextId++,
-            this.rng.range(0, config.worldWidth),
-            this.rng.range(0, config.worldHeight),
-            this.rng,
-            config
-          )
+    if (state.predators.length === 0 && state.herbivores.length > 10 && this.rng.next() < 0.01) {
+      const traits = avgTraits(state.predTraitMemory) as PredatorTraits | null;
+      for (let i = 0; i < 6; i++) {
+        const p = createPredator(
+          state.nextId++,
+          this.rng.range(0, config.worldWidth),
+          this.rng.range(0, config.worldHeight),
+          this.rng,
+          config,
+          traits || undefined
         );
+        p.energy = config.predatorReproductionEnergy;
+        state.predators.push(p);
       }
+      state.reintroductionTime = state.time;
     }
-    if (state.scavengers.length === 0 && state.corpses.length > 3 && this.rng.next() < 0.01) {
-      for (let i = 0; i < 3; i++) {
-        state.scavengers.push(
-          createScavenger(
-            state.nextId++,
-            this.rng.range(0, config.worldWidth),
-            this.rng.range(0, config.worldHeight),
-            this.rng,
-            config
-          )
+    if (state.scavengers.length === 0 && state.corpses.length > 2 && this.rng.next() < 0.01) {
+      const traits = avgTraits(state.scavTraitMemory) as ScavengerTraits | null;
+      for (let i = 0; i < 8; i++) {
+        const s = createScavenger(
+          state.nextId++,
+          this.rng.range(0, config.worldWidth),
+          this.rng.range(0, config.worldHeight),
+          this.rng,
+          config,
+          traits || undefined
         );
+        s.energy = config.scavengerReproductionEnergy;
+        state.scavengers.push(s);
       }
+      state.reintroductionTime = state.time;
     }
 
     // Decay corpses
@@ -564,6 +591,10 @@ export class Simulation {
       weatherCooldown: 60,
       lineageCounts: new Map(),
       soilHealth: new Float32Array(config.plantGridCols * config.plantGridRows).fill(1.0),
+      herbTraitMemory: [],
+      predTraitMemory: [],
+      scavTraitMemory: [],
+      reintroductionTime: -Infinity,
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;

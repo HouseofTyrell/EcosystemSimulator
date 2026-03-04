@@ -52,6 +52,9 @@ function applyDisease(state: SimState, rng: SeededRNG): void {
 
   if (!targets || targets.length === 0) return;
 
+  // Don't target species within 10s of reintroduction
+  if (state.time - state.reintroductionTime < 10) return;
+
   const count = Math.min(2 + Math.floor(rng.next() * 2), targets.length); // 2-3 initial infections
   for (let i = 0; i < count; i++) {
     const idx = Math.floor(rng.next() * targets.length);

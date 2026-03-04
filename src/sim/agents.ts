@@ -851,6 +851,8 @@ export function updateHerbivores(
       child.generation = h.generation + 1;
       events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
+      state.herbTraitMemory.push({ ...h.traits });
+      if (state.herbTraitMemory.length > 50) state.herbTraitMemory.shift();
     }
   }
 
@@ -1016,6 +1018,8 @@ export function updatePredators(
       child.generation = p.generation + 1;
       events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
+      state.predTraitMemory.push({ ...p.traits });
+      if (state.predTraitMemory.length > 50) state.predTraitMemory.shift();
     }
   }
 
@@ -1155,6 +1159,8 @@ export function updateScavengers(
       child.lineageId = s.lineageId;
       child.generation = s.generation + 1;
       newborns.push(child);
+      state.scavTraitMemory.push({ ...s.traits });
+      if (state.scavTraitMemory.length > 50) state.scavTraitMemory.shift();
       events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
     }
   }
