@@ -1,4 +1,5 @@
 import type { Creature, SimState } from '../sim/types';
+import { makeDraggable } from './draggable';
 
 const MAX_PINS = 3;
 
@@ -18,6 +19,7 @@ export class CreatureInspector {
     this.panelEl = document.createElement('div');
     this.panelEl.id = 'inspector';
     container.appendChild(this.panelEl);
+    makeDraggable(this.panelEl, this.panelEl);
   }
 
   get pinnedIds(): number[] {

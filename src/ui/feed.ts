@@ -1,4 +1,5 @@
 import type { FeedEvent } from '../sim/types';
+import { makeDraggable } from './draggable';
 
 const MAX_ENTRIES = 10;
 const DEFAULT_DURATION = 8;   // sim-seconds before fade begins
@@ -22,6 +23,7 @@ export class EventFeed {
     this.el = document.createElement('div');
     this.el.id = 'event-feed';
     container.appendChild(this.el);
+    makeDraggable(this.el, this.el);
   }
 
   setVisible(v: boolean): void {

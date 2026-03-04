@@ -1,6 +1,7 @@
 // UI overlay: stats, help, settings, keyboard controls
 
 import type { SimStats, SimConfig } from '../sim/types';
+import { makeDraggable, resetPanelPositions } from './draggable';
 
 export interface UICallbacks {
   onPause: () => void;
@@ -75,6 +76,7 @@ export class UIOverlay {
       <div><span class="key">M</span> Toggle sound</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
+      <div><span class="key">L</span> Reset panel layout</div>
     `;
     this.overlay.appendChild(this.helpEl);
 
@@ -88,6 +90,10 @@ export class UIOverlay {
 
     // Key bindings
     this.setupKeyboard();
+
+    // Make panels draggable
+    makeDraggable(this.statsEl, this.statsEl);
+    makeDraggable(this.settingsEl, this.settingsEl.querySelector('.settings-header')! as HTMLElement);
 
     // Overlay always visible by default (no auto-fade)
   }
@@ -317,6 +323,9 @@ export class UIOverlay {
           break;
         case 'Escape':
           cb.onConfigChange('inspector', true);
+          break;
+        case 'KeyL':
+          resetPanelPositions();
           break;
       }
 

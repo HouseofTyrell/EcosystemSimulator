@@ -413,3 +413,11 @@ canvas {
   z-index: 50;
 }
 #minimap canvas { display: block; }
+
+/* Draggable panel hover hint */
+#stats:hover,
+#settings .settings-header:hover,
+#inspector:hover,
+#event-feed:hover {
+  border-color: rgba(68, 102, 136, 0.6);
+}
