@@ -291,14 +291,21 @@ export class Renderer {
       .rect(0, 0, this.worldW, this.worldH)
       .fill({ color: finalBgColor });
 
-    // Dawn/dusk warm tint
+    // Dawn/dusk warm tint — enhanced golden hour
     const isDawn = state.dayPhase < 0.2;
     const isDusk = state.dayPhase > 0.55 && state.dayPhase < 0.75;
     if (this.dayNightEnabled && (isDawn || isDusk)) {
       const progress = isDawn ? (1 - state.dayPhase / 0.2) : ((state.dayPhase - 0.55) / 0.2);
-      this.backgroundLayer
-        .rect(0, 0, this.worldW, this.worldH)
-        .fill({ color: isDawn ? 0xdd8844 : 0xcc5522, alpha: progress * 0.08 });
+      const tintColor = isDawn ? 0xdd8844 : 0xcc5522;
+      const maxAlpha = 0.15;
+      // Horizon gradient: 3 bands, warmest at bottom
+      const bandH = this.worldH / 3;
+      for (let band = 0; band < 3; band++) {
+        const bandAlpha = progress * maxAlpha * (1 - band * 0.3);
+        this.backgroundLayer
+          .rect(0, band * bandH, this.worldW, bandH)
+          .fill({ color: tintColor, alpha: bandAlpha });
+      }
     }
 
     if (!state.config.wrapWorld) {
@@ -471,6 +478,12 @@ export class Renderer {
       sprite.scale.set(0.6);
     }
 
+    // Shadow offset scales with sun angle (dawn/dusk = longer shadows)
+    const sunProgress = (isDawn || isDusk)
+      ? (isDawn ? (1 - state.dayPhase / 0.2) : ((state.dayPhase - 0.55) / 0.2))
+      : 0;
+    const shadowOffset = 2 + sunProgress * 3;
+
     // === 6. Herbivores ===
     for (let i = 0; i < state.herbivores.length; i++) {
       const h = state.herbivores[i];
@@ -496,8 +509,8 @@ export class Renderer {
 
       // Ground shadow
       const shadowH = this.shadowPool.acquire();
-      shadowH.x = sprite.x + 2;
-      shadowH.y = sprite.y + 2;
+      shadowH.x = sprite.x + shadowOffset;
+      shadowH.y = sprite.y + shadowOffset;
       shadowH.rotation = sprite.rotation;
       shadowH.scale.set(baseScale * 1.1);
       shadowH.alpha = 0.3;
@@ -554,8 +567,8 @@ export class Renderer {
 
       // Ground shadow
       const shadowP = this.shadowPool.acquire();
-      shadowP.x = sprite.x + 2;
-      shadowP.y = sprite.y + 2;
+      shadowP.x = sprite.x + shadowOffset;
+      shadowP.y = sprite.y + shadowOffset;
       shadowP.rotation = sprite.rotation;
       shadowP.scale.set(baseScale * 1.1);
       shadowP.alpha = 0.3;
@@ -605,8 +618,8 @@ export class Renderer {
 
       // Ground shadow
       const shadowS = this.shadowPool.acquire();
-      shadowS.x = sprite.x + 2;
-      shadowS.y = sprite.y + 2;
+      shadowS.x = sprite.x + shadowOffset;
+      shadowS.y = sprite.y + shadowOffset;
       shadowS.rotation = sprite.rotation;
       shadowS.scale.set(baseScale * 1.0);
       shadowS.alpha = 0.3;
