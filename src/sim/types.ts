@@ -59,6 +59,12 @@ export interface Scavenger extends Agent {
 
 export type Creature = Herbivore | Predator | Scavenger;
 
+export interface FeedEvent {
+  time: number;
+  text: string;
+  color: string;
+}
+
 export const enum TerrainType {
   Land = 0,
   Water = 1,
@@ -130,6 +136,7 @@ export interface SimState {
   events: SimEvent[];
   activeEvent: ActiveEvent | null;
   eventCooldown: number;
+  feedEvents: FeedEvent[];
 }
 
 export interface SimStats {

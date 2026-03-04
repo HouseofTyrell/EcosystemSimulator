@@ -312,3 +312,23 @@ canvas {
 .inspector-trait span:last-child {
   color: #7788aa;
 }
+
+/* Event Feed */
+#event-feed {
+  position: absolute;
+  bottom: 70px;
+  right: 16px;
+  width: 200px;
+  pointer-events: none;
+  font-size: 10px;
+}
+
+.feed-entry {
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.feed-time {
+  color: #445566;
+  margin-right: 6px;
+}

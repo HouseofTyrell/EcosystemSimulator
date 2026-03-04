@@ -5,6 +5,7 @@ import { Renderer } from './render/renderer';
 import { UIOverlay } from './ui/overlay';
 import { PopulationGraph } from './ui/graph';
 import { CreatureInspector } from './ui/inspector';
+import { EventFeed } from './ui/feed';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -14,6 +15,7 @@ class App {
   private ui!: UIOverlay;
   private graph!: PopulationGraph;
   private inspector!: CreatureInspector;
+  private feed!: EventFeed;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = false;
@@ -66,6 +68,8 @@ class App {
 
     this.inspector = new CreatureInspector(container);
 
+    this.feed = new EventFeed(container);
+
     this.renderer.app.canvas.addEventListener('click', (e) => {
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const scaleX = this.sim.state.config.worldWidth / rect.width;
@@ -117,6 +121,7 @@ class App {
     this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
     this.graph.update(this.sim.state.stats, this.sim.state.time);
     this.inspector.update(this.sim.state, this.sim.state.time);
+    this.feed.update(this.sim.state.feedEvents);
   };
 
   private reset(seed: number): void {
@@ -128,6 +133,7 @@ class App {
     this.ui.updateSeed(seed);
     this.graph.reset();
     this.inspector.clearAll();
+    this.feed.reset();
     this.renderer.setTrails(this.trails); // Clear trails on reset
   }
 
@@ -154,6 +160,11 @@ class App {
       this.sim.herbHash.wrap = wrap;
       this.sim.predHash.wrap = wrap;
       this.sim.scavHash.wrap = wrap;
+      return;
+    }
+
+    if (key === 'feed') {
+      this.feed.toggle();
       return;
     }
 

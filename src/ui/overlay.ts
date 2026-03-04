@@ -70,6 +70,7 @@ export class UIOverlay {
       <div><span class="key">4</span> Speed 4x</div>
       <div><span class="key">T</span> Toggle trails</div>
       <div><span class="key">G</span> Toggle graph</div>
+      <div><span class="key">F</span> Toggle event feed</div>
       <div><span class="key">Esc</span> Clear inspector</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
@@ -251,6 +252,10 @@ export class UIOverlay {
         case 'KeyG':
           cb.onConfigChange('graph', true);
           this.syncToggle('graph', !this.getToggleState('graph'));
+          break;
+        case 'KeyF':
+          cb.onConfigChange('feed', true);
+          this.syncToggle('feed', !this.getToggleState('feed'));
           break;
         case 'Escape':
           cb.onConfigChange('inspector', true);

@@ -39,6 +39,10 @@ export class Simulation {
   private diffusionAccum: number = 0;
   private readonly DIFFUSION_INTERVAL = 0.5; // seconds between diffusion
   private spawnQueues: { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue };
+  private prevHerbCount: number = 0;
+  private prevPredCount: number = 0;
+  private prevScavCount: number = 0;
+  private milestones = new Set<string>();
 
   constructor(config?: Partial<SimConfig>) {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
@@ -66,6 +70,7 @@ export class Simulation {
       events: [],
       activeEvent: null,
       eventCooldown: 30,
+      feedEvents: [],
     };
 
     this.spawnQueues = this.createSpawnQueues(fullConfig);
@@ -313,6 +318,9 @@ export class Simulation {
 
     // Update stats
     this.computeStats();
+
+    // Detect feed events
+    this.detectFeedEvents();
   }
 
   private computeStats(): void {
@@ -373,6 +381,46 @@ export class Simulation {
     }
   }
 
+  private detectFeedEvents(): void {
+    const state = this.state;
+    const t = state.time;
+    const feed = state.feedEvents;
+
+    // Environmental events (detect start)
+    if (state.activeEvent && state.activeEvent.remaining >= state.activeEvent.duration - 0.02) {
+      const name = state.activeEvent.type.charAt(0).toUpperCase() + state.activeEvent.type.slice(1);
+      const eventColors: Record<string, string> = { drought: '#cc8844', bloom: '#44cc66', disease: '#cc44cc' };
+      feed.push({ time: t, text: `${name} began`, color: eventColors[state.activeEvent.type] || '#8899aa' });
+    }
+
+    // Extinction / Recovery / Milestones
+    const checks: { name: string; count: number; prev: number; color: string }[] = [
+      { name: 'Herbivores', count: state.herbivores.length, prev: this.prevHerbCount, color: '#55ddaa' },
+      { name: 'Predators', count: state.predators.length, prev: this.prevPredCount, color: '#cc5544' },
+      { name: 'Scavengers', count: state.scavengers.length, prev: this.prevScavCount, color: '#ccaa44' },
+    ];
+
+    for (const { name, count, prev, color } of checks) {
+      if (prev > 0 && count === 0) {
+        feed.push({ time: t, text: `${name} went extinct!`, color });
+      }
+      if (prev === 0 && count > 0 && t > 5) {
+        feed.push({ time: t, text: `${name} reintroduced`, color });
+      }
+      for (const m of [25, 50, 100]) {
+        const key = `${name}-${m}`;
+        if (count >= m && prev < m && !this.milestones.has(key)) {
+          this.milestones.add(key);
+          feed.push({ time: t, text: `${name} reached ${m}`, color });
+        }
+      }
+    }
+
+    this.prevHerbCount = state.herbivores.length;
+    this.prevPredCount = state.predators.length;
+    this.prevScavCount = state.scavengers.length;
+  }
+
   reset(seed?: number): void {
     const config = { ...this.state.config };
     if (seed !== undefined) {
@@ -395,11 +443,16 @@ export class Simulation {
       events: [],
       activeEvent: null,
       eventCooldown: 30,
+      feedEvents: [],
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;
     this.scavHash.wrap = config.wrapWorld;
     this.diffusionAccum = 0;
     this.spawnQueues = this.createSpawnQueues(config);
+    this.prevHerbCount = 0;
+    this.prevPredCount = 0;
+    this.prevScavCount = 0;
+    this.milestones.clear();
   }
 }
