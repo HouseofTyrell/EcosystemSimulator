@@ -46,13 +46,14 @@ export function updatePlants(
       continue;
     }
 
-    // Fertile cells grow at double rate
-    const effectiveR = terrain[i] === TerrainType.Fertile ? r * 2 : r;
+    // Fertile cells grow faster and have higher carrying capacity
+    const effectiveR = terrain[i] === TerrainType.Fertile ? r * 1.4 : r;
+    const effectiveK = terrain[i] === TerrainType.Fertile ? K * 1.5 : K;
 
     const p = grid[i];
     // Logistic growth: dp/dt = r * p * (1 - p/K)
-    const growth = effectiveR * p * (1 - p / K) * dt;
-    grid[i] = Math.max(0, Math.min(K, p + growth));
+    const growth = effectiveR * p * (1 - p / effectiveK) * dt;
+    grid[i] = Math.max(0, Math.min(effectiveK, p + growth));
   }
 
   // Diffusion: spread nutrients to neighbors (simple averaging)

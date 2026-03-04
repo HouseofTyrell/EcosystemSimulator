@@ -293,7 +293,7 @@ export class Simulation {
         state.corpses.push({
           x: h.pos.x,
           y: h.pos.y,
-          energy: 20,
+          energy: Math.max(10, h.traits.size * Math.max(h.energy, 5) * 0.15),
           creatureType: 'herbivore',
           decayTimer: 15,
           maxDecay: 15,
@@ -306,7 +306,7 @@ export class Simulation {
         state.corpses.push({
           x: p.pos.x,
           y: p.pos.y,
-          energy: 25,
+          energy: Math.max(10, p.traits.size * Math.max(p.energy, 5) * 0.15),
           creatureType: 'predator',
           decayTimer: 15,
           maxDecay: 15,
@@ -319,7 +319,7 @@ export class Simulation {
         state.corpses.push({
           x: s.pos.x,
           y: s.pos.y,
-          energy: 15,
+          energy: Math.max(10, s.traits.size * Math.max(s.energy, 5) * 0.15),
           creatureType: 'scavenger',
           decayTimer: 15,
           maxDecay: 15,
