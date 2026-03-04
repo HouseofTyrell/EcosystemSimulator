@@ -40,8 +40,8 @@ export function updatePlants(
   const rows = config.plantGridRows;
 
   for (let i = 0; i < cols * rows; i++) {
-    // Water cells have no plant growth
-    if (terrain[i] === TerrainType.Water) {
+    // Water and mountain cells have no plant growth
+    if (terrain[i] === TerrainType.Water || terrain[i] === TerrainType.Mountain) {
       grid[i] = 0;
       continue;
     }

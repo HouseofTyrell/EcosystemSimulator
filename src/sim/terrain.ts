@@ -44,6 +44,8 @@ export function generateTerrain(config: SimConfig, seed: number): Uint8Array {
         terrain[idx] = TerrainType.Water;
       } else if (val < 0.50) {
         terrain[idx] = TerrainType.Fertile;
+      } else if (val > 1.15) {
+        terrain[idx] = TerrainType.Mountain;
       } else {
         terrain[idx] = TerrainType.Land;
       }

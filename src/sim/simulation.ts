@@ -23,6 +23,13 @@ import {
 import { generateTerrain, getTerrainAt } from './terrain';
 import { updateEvents, getEventPlantMultiplier } from './events';
 
+interface SpawnQueue {
+  remaining: number;
+  interval: number;  // seconds between spawns
+  timer: number;
+  startDelay: number; // seconds before first spawn
+}
+
 export class Simulation {
   state: SimState;
   rng: SeededRNG;
@@ -31,6 +38,7 @@ export class Simulation {
   scavHash: SpatialHash<Scavenger>;
   private diffusionAccum: number = 0;
   private readonly DIFFUSION_INTERVAL = 0.5; // seconds between diffusion
+  private spawnQueues: { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue };
 
   constructor(config?: Partial<SimConfig>) {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
@@ -57,7 +65,7 @@ export class Simulation {
       eventCooldown: 30,
     };
 
-    this.spawnInitialPopulation();
+    this.spawnQueues = this.createSpawnQueues(fullConfig);
   }
 
   private emptyStats(): SimStats {
@@ -79,61 +87,75 @@ export class Simulation {
     };
   }
 
-  private spawnInitialPopulation(): void {
+  private createSpawnQueues(config: SimConfig): { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue } {
+    return {
+      herb: { remaining: config.initialHerbivores, interval: 2, timer: 0, startDelay: 1 },
+      pred: { remaining: config.initialPredators, interval: 4, timer: 0, startDelay: 15 },
+      scav: { remaining: config.initialScavengers, interval: 3, timer: 0, startDelay: 10 },
+    };
+  }
+
+  private spawnFromQueue(x: number, y: number, type: 'herbivore' | 'predator' | 'scavenger'): void {
+    const state = this.state;
+    const config = state.config;
+    if (type === 'herbivore') {
+      state.herbivores.push(createHerbivore(state.nextId++, x, y, this.rng, config));
+    } else if (type === 'predator') {
+      state.predators.push(createPredator(state.nextId++, x, y, this.rng, config));
+    } else {
+      state.scavengers.push(createScavenger(state.nextId++, x, y, this.rng, config));
+    }
+    state.events.push({ type: 'birth', creatureType: type, x, y });
+  }
+
+  private findLandPosition(): { x: number; y: number } {
     const config = this.state.config;
+    let x: number, y: number;
+    do {
+      x = this.rng.range(0, config.worldWidth);
+      y = this.rng.range(0, config.worldHeight);
+    } while (
+      getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water ||
+      getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Mountain
+    );
+    return { x, y };
+  }
 
-    for (let i = 0; i < config.initialHerbivores; i++) {
-      // Find non-water position
-      let x: number, y: number;
-      do {
-        x = this.rng.range(0, config.worldWidth);
-        y = this.rng.range(0, config.worldHeight);
-      } while (getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water);
+  private updateSpawnQueues(dt: number): void {
+    const time = this.state.time;
+    const queues = this.spawnQueues;
 
-      const h = createHerbivore(
-        this.state.nextId++,
-        x,
-        y,
-        this.rng,
-        config
-      );
-      this.state.herbivores.push(h);
+    // Herbivores: spawn first, need plants to eat
+    if (queues.herb.remaining > 0 && time >= queues.herb.startDelay) {
+      queues.herb.timer += dt;
+      if (queues.herb.timer >= queues.herb.interval) {
+        queues.herb.timer -= queues.herb.interval;
+        queues.herb.remaining--;
+        const pos = this.findLandPosition();
+        this.spawnFromQueue(pos.x, pos.y, 'herbivore');
+      }
     }
 
-    for (let i = 0; i < config.initialPredators; i++) {
-      // Find non-water position
-      let x: number, y: number;
-      do {
-        x = this.rng.range(0, config.worldWidth);
-        y = this.rng.range(0, config.worldHeight);
-      } while (getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water);
-
-      const p = createPredator(
-        this.state.nextId++,
-        x,
-        y,
-        this.rng,
-        config
-      );
-      this.state.predators.push(p);
+    // Predators: spawn after delay so herbivores establish first
+    if (queues.pred.remaining > 0 && time >= queues.pred.startDelay) {
+      queues.pred.timer += dt;
+      if (queues.pred.timer >= queues.pred.interval) {
+        queues.pred.timer -= queues.pred.interval;
+        queues.pred.remaining--;
+        const pos = this.findLandPosition();
+        this.spawnFromQueue(pos.x, pos.y, 'predator');
+      }
     }
 
-    for (let i = 0; i < config.initialScavengers; i++) {
-      // Find non-water position
-      let x: number, y: number;
-      do {
-        x = this.rng.range(0, config.worldWidth);
-        y = this.rng.range(0, config.worldHeight);
-      } while (getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water);
-
-      const s = createScavenger(
-        this.state.nextId++,
-        x,
-        y,
-        this.rng,
-        config
-      );
-      this.state.scavengers.push(s);
+    // Scavengers: spawn after some deaths have occurred
+    if (queues.scav.remaining > 0 && time >= queues.scav.startDelay) {
+      queues.scav.timer += dt;
+      if (queues.scav.timer >= queues.scav.interval) {
+        queues.scav.timer -= queues.scav.interval;
+        queues.scav.remaining--;
+        const pos = this.findLandPosition();
+        this.spawnFromQueue(pos.x, pos.y, 'scavenger');
+      }
     }
   }
 
@@ -145,6 +167,9 @@ export class Simulation {
     state.time += dt;
     state.season = (state.time / config.seasonPeriod) % 1;
     state.seasonalMultiplier = getSeasonalMultiplier(state.time, config);
+
+    // Gradual initial spawning
+    this.updateSpawnQueues(dt);
 
     // Update environmental events
     updateEvents(state, dt, this.rng);
@@ -369,6 +394,6 @@ export class Simulation {
       eventCooldown: 30,
     };
     this.diffusionAccum = 0;
-    this.spawnInitialPopulation();
+    this.spawnQueues = this.createSpawnQueues(config);
   }
 }

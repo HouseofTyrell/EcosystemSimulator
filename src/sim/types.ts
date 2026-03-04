@@ -63,6 +63,7 @@ export const enum TerrainType {
   Land = 0,
   Water = 1,
   Fertile = 2,
+  Mountain = 3,
 }
 
 export interface SimConfig {

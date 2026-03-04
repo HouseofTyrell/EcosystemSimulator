@@ -224,6 +224,10 @@ export class Renderer {
           // Water
           sprite.tint = 0x1a2a4a;
           sprite.alpha = 0.35;
+        } else if (t === 3) {
+          // Mountain
+          sprite.tint = 0x3a3530;
+          sprite.alpha = 0.5;
         } else {
           // Fertile
           sprite.tint = 0x1a3a1a;

@@ -263,7 +263,8 @@ export function steerHerbivore(
     { x: h.pos.x, y: h.pos.y - ahead },
   ];
   for (const cp of checkPoints) {
-    if (getTerrainAt(state.terrain, cp.x, cp.y, config) === TerrainType.Water) {
+    const t = getTerrainAt(state.terrain, cp.x, cp.y, config);
+    if (t === TerrainType.Water || t === TerrainType.Mountain) {
       const dx = cp.x - h.pos.x;
       const dy = cp.y - h.pos.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -347,7 +348,8 @@ export function steerPredator(
     { x: p.pos.x, y: p.pos.y - ahead },
   ];
   for (const cp of checkPoints) {
-    if (getTerrainAt(state.terrain, cp.x, cp.y, state.config) === TerrainType.Water) {
+    const t = getTerrainAt(state.terrain, cp.x, cp.y, state.config);
+    if (t === TerrainType.Water || t === TerrainType.Mountain) {
       const dx = cp.x - p.pos.x;
       const dy = cp.y - p.pos.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -429,7 +431,8 @@ export function steerScavenger(
     { x: s.pos.x, y: s.pos.y - ahead },
   ];
   for (const cp of checkPoints) {
-    if (getTerrainAt(state.terrain, cp.x, cp.y, config) === TerrainType.Water) {
+    const t = getTerrainAt(state.terrain, cp.x, cp.y, config);
+    if (t === TerrainType.Water || t === TerrainType.Mountain) {
       const dx = cp.x - s.pos.x;
       const dy = cp.y - s.pos.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
