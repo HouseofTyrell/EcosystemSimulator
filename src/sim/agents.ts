@@ -590,10 +590,13 @@ export function updateHerbivores(
     const stage = getLifeStage(h.age, h.maxAge);
     h.reproductionCooldown = Math.max(0, h.reproductionCooldown - dt);
 
-    // Energy cost: metabolism + speed-proportional cost (tradeoff: fast = expensive)
-    const speedCost = (Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y) / 60) * 0.5;
+    // Quadratic speed cost — fast creatures pay super-linearly
+    const spdH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
+    const relSpeedH = spdH / (h.traits.speed || 1);
+    const speedCost = h.traits.speed * relSpeedH * relSpeedH * 0.008;
     const sizeCost = h.traits.size * 0.15;
-    h.energy -= (h.traits.metabolism + speedCost + sizeCost) * dt;
+    const baseMeta = h.traits.metabolism + h.traits.speed * Math.sqrt(h.traits.speed) * 0.001;
+    h.energy -= (baseMeta + speedCost + sizeCost) * dt;
 
     // Eat plants
     const eaten = eatPlant(
@@ -713,10 +716,13 @@ export function updatePredators(
     p.reproductionCooldown = Math.max(0, p.reproductionCooldown - dt);
     p.attackTimer = Math.max(0, p.attackTimer - dt);
 
-    // Energy cost
-    const speedCost = (Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y) / 60) * 0.6;
-    const sizeCost = p.traits.size * 0.12;
-    p.energy -= (p.traits.metabolism + speedCost + sizeCost) * dt;
+    // Quadratic speed cost — fast creatures pay super-linearly
+    const spdP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+    const relSpeedP = spdP / (p.traits.speed || 1);
+    const speedCostP = p.traits.speed * relSpeedP * relSpeedP * 0.008;
+    const sizeCostP = p.traits.size * 0.12;
+    const baseMetaP = p.traits.metabolism + p.traits.speed * Math.sqrt(p.traits.speed) * 0.001;
+    p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt;
 
     // Hunt: try to eat nearest herbivore
     if (p.attackTimer <= 0) {
@@ -840,10 +846,13 @@ export function updateScavengers(
     const stage = getLifeStage(s.age, s.maxAge);
     s.reproductionCooldown = Math.max(0, s.reproductionCooldown - dt);
 
-    // Energy cost
-    const speedCost = (Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y) / 60) * 0.4;
-    const sizeCost = s.traits.size * 0.1;
-    s.energy -= (s.traits.metabolism + speedCost + sizeCost) * dt;
+    // Quadratic speed cost — fast creatures pay super-linearly
+    const spdS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
+    const relSpeedS = spdS / (s.traits.speed || 1);
+    const speedCostS = s.traits.speed * relSpeedS * relSpeedS * 0.008;
+    const sizeCostS = s.traits.size * 0.12;
+    const baseMetaS = s.traits.metabolism + s.traits.speed * Math.sqrt(s.traits.speed) * 0.001;
+    s.energy -= (baseMetaS + speedCostS + sizeCostS) * dt;
 
     // Eat corpses: check nearby corpses
     const eatRange = s.traits.size * 3 + 10;
