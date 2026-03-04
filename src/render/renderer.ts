@@ -266,6 +266,13 @@ export class Renderer {
     this.glowPool = new SpritePool(this.textures.glow, this.glowContainer);
     this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
 
+    // Pre-allocate for up to 1000 creatures to avoid runtime stalls
+    this.herbPool.preallocate(800);
+    this.predPool.preallocate(250);
+    this.scavPool.preallocate(150);
+    this.glowPool.preallocate(1200);
+    this.shadowPool.preallocate(1200);
+
     // Bloom effect on glows
     this.glowContainer.filters = [new BlurFilter({ strength: 5, quality: 2 })];
     this.glowContainer.blendMode = 'add';

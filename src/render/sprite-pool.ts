@@ -40,4 +40,14 @@ export class SpritePool {
       }
     }
   }
+
+  preallocate(count: number): void {
+    for (let i = 0; i < count; i++) {
+      const sprite = new Sprite(this.texture);
+      sprite.anchor.set(0.5);
+      sprite.visible = false;
+      this.container.addChild(sprite);
+      this.pool.push(sprite);
+    }
+  }
 }
