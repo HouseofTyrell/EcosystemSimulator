@@ -497,39 +497,45 @@ export function steerPredator(
   const vision = p.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(p.energy / 120, 1);
 
+  // Satiation: well-fed predators stop hunting
+  const satiationThreshold = state.config.predatorReproductionEnergy * 0.8;
+  const isSatiated = p.energy > satiationThreshold;
+
   // 1) Attraction to herbivores (scored targeting, scaled by hunger)
-  const herbBuf: Herbivore[] = [];
-  herbHash.query(p.pos, vision, herbBuf);
-  let bestScore = -Infinity;
   let bestDelta: Vec2 | null = null;
   let bestDist = 0;
-  for (let i = 0; i < herbBuf.length; i++) {
-    const h = herbBuf[i];
-    const delta = herbHash.wrappedDelta(p.pos, h.pos);
-    const d2 = delta.x * delta.x + delta.y * delta.y;
-    const d = Math.sqrt(d2);
-    if (d < 1) continue;
-    // Score: prefer slow, small prey that's close
-    const speedAdvantage = (p.traits.speed - h.traits.speed * 0.8);
-    const sizeAdvantage = p.traits.size - h.traits.size;
-    const catchScore = (speedAdvantage + sizeAdvantage * 0.5) / (d + 10);
-    if (catchScore > bestScore) {
-      bestScore = catchScore;
-      bestDelta = { x: delta.x, y: delta.y };
-      bestDist = d;
+  if (!isSatiated) {
+    const herbBuf: Herbivore[] = [];
+    herbHash.query(p.pos, vision, herbBuf);
+    let bestScore = -Infinity;
+    for (let i = 0; i < herbBuf.length; i++) {
+      const h = herbBuf[i];
+      const delta = herbHash.wrappedDelta(p.pos, h.pos);
+      const d2 = delta.x * delta.x + delta.y * delta.y;
+      const d = Math.sqrt(d2);
+      if (d < 1) continue;
+      // Score: prefer slow, small prey that's close
+      const speedAdvantage = (p.traits.speed - h.traits.speed * 0.8);
+      const sizeAdvantage = p.traits.size - h.traits.size;
+      const catchScore = (speedAdvantage + sizeAdvantage * 0.5) / (d + 10);
+      if (catchScore > bestScore) {
+        bestScore = catchScore;
+        bestDelta = { x: delta.x, y: delta.y };
+        bestDist = d;
+      }
     }
-  }
-  if (bestDelta) {
-    if (bestDist > 1) {
-      // Pack coordination: more predators = stronger attraction
-      const nearbyPreds: Predator[] = [];
-      predHash.query(p.pos, 60, nearbyPreds);
-      const packSize = nearbyPreds.length; // includes self
-      const packBonus = 1 + 0.25 * Math.min(packSize - 1, 3); // 1x solo, up to 1.75x in pack of 4+
+    if (bestDelta) {
+      if (bestDist > 1) {
+        // Pack coordination: more predators = stronger attraction
+        const nearbyPreds: Predator[] = [];
+        predHash.query(p.pos, 60, nearbyPreds);
+        const packSize = nearbyPreds.length; // includes self
+        const packBonus = 1 + 0.25 * Math.min(packSize - 1, 3); // 1x solo, up to 1.75x in pack of 4+
 
-      const strength = 80 * (0.3 + hunger * 0.7) * packBonus;
-      fx += (bestDelta.x / bestDist) * strength;
-      fy += (bestDelta.y / bestDist) * strength;
+        const strength = 80 * (0.3 + hunger * 0.7) * packBonus;
+        fx += (bestDelta.x / bestDist) * strength;
+        fy += (bestDelta.y / bestDist) * strength;
+      }
     }
   }
 
@@ -880,8 +886,8 @@ export function updatePredators(
     const baseMetaP = p.traits.metabolism + p.traits.speed * Math.sqrt(p.traits.speed) * 0.001;
     p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt;
 
-    // Hunt: try to eat nearest herbivore
-    if (p.attackTimer <= 0) {
+    // Hunt: try to eat nearest herbivore (satiated predators skip attacking)
+    if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 0.8) {
       const herbBuf: Herbivore[] = [];
       const attackRange = p.traits.size * 3 + 8;
       herbHash.query(p.pos, attackRange, herbBuf);
