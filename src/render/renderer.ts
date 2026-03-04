@@ -3,6 +3,7 @@
 
 import { Application, Graphics, Container, Sprite, BlurFilter, RenderTexture } from 'pixi.js';
 import type { SimState } from '../sim/types';
+import type { CameraState } from '../camera';
 import { SpritePool } from './sprite-pool';
 import { generateTextures, type GeneratedTextures } from './textures';
 
@@ -280,8 +281,20 @@ export class Renderer {
     if (!enabled) this.weatherLayer.clear();
   }
 
-  render(state: SimState, time: number, selectedIds?: number[]): void {
+  render(state: SimState, time: number, selectedIds?: number[], camera?: CameraState): void {
     if (!this.ready) return;
+
+    // Apply camera transform to stage
+    if (camera) {
+      this.app.stage.scale.set(camera.zoom);
+      this.app.stage.position.set(
+        this.worldW / 2 - camera.x * camera.zoom,
+        this.worldH / 2 - camera.y * camera.zoom
+      );
+    } else {
+      this.app.stage.scale.set(1);
+      this.app.stage.position.set(0, 0);
+    }
 
     const config = state.config;
     const scaleX = this.worldW / config.worldWidth;

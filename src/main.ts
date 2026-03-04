@@ -6,6 +6,7 @@ import { UIOverlay } from './ui/overlay';
 import { PopulationGraph } from './ui/graph';
 import { CreatureInspector } from './ui/inspector';
 import { EventFeed } from './ui/feed';
+import { Camera } from './camera';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -16,9 +17,11 @@ class App {
   private graph!: PopulationGraph;
   private inspector!: CreatureInspector;
   private feed!: EventFeed;
+  private camera!: Camera;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = false;
+  private dayNightEnabled: boolean = true;
   private accumulator: number = 0;
   private lastTime: number = 0;
   private seed: number;
@@ -39,6 +42,8 @@ class App {
     this.sim.state.config.worldHeight = height;
     this.sim.reset(this.seed);
     this.updatePopCaps();
+
+    this.camera = new Camera(width, height);
 
     await this.renderer.init({
       container,
@@ -73,11 +78,55 @@ class App {
 
     this.renderer.app.canvas.addEventListener('click', (e) => {
       const rect = this.renderer.app.canvas.getBoundingClientRect();
-      const scaleX = this.sim.state.config.worldWidth / rect.width;
-      const scaleY = this.sim.state.config.worldHeight / rect.height;
-      const worldX = (e.clientX - rect.left) * scaleX;
-      const worldY = (e.clientY - rect.top) * scaleY;
+      const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
+      const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
       this.inspector.tryPin(this.sim.state, worldX, worldY);
+    });
+
+    // Mouse wheel zoom
+    this.renderer.app.canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = this.renderer.app.canvas.getBoundingClientRect();
+      this.camera.zoomAt(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, e.deltaY);
+    }, { passive: false });
+
+    // Middle/right-click drag to pan
+    let panning = false;
+    let lastPanX = 0, lastPanY = 0;
+    this.renderer.app.canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 1 || e.button === 2) {
+        panning = true;
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (panning) {
+        this.camera.panBy(e.clientX - lastPanX, e.clientY - lastPanY);
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+      }
+    });
+    window.addEventListener('mouseup', () => { panning = false; });
+    this.renderer.app.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Double-click to zoom in
+    this.renderer.app.canvas.addEventListener('dblclick', (e) => {
+      const rect = this.renderer.app.canvas.getBoundingClientRect();
+      const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
+      const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
+      this.camera.centerOn(worldX, worldY, 2);
+    });
+
+    // Camera keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      if (e.code === 'Digit0') {
+        this.camera.resetView();
+      } else if (e.code === 'KeyC') {
+        this.camera.follow(this.inspector.pinnedIds[0] || null);
+      }
     });
 
     // Resize handling
@@ -88,6 +137,7 @@ class App {
       this.graph.resize();
       this.sim.state.config.worldWidth = w;
       this.sim.state.config.worldHeight = h;
+      this.camera.resize(w, h);
       this.updatePopCaps();
     });
 
@@ -118,10 +168,26 @@ class App {
       }
     }
 
+    // Update camera (smooth interpolation)
+    this.camera.update();
+
+    // Follow creature if tracking one
+    if (this.camera.state.following !== null) {
+      const all = [...this.sim.state.herbivores, ...this.sim.state.predators, ...this.sim.state.scavengers];
+      const target = all.find(c => c.id === this.camera.state.following);
+      if (target) {
+        this.camera.centerOn(target.pos.x, target.pos.y);
+      } else {
+        this.camera.follow(null);
+        this.camera.resetView();
+      }
+    }
+
     // Render every frame
-    this.renderer.render(this.sim.state, this.sim.state.time, this.inspector.pinnedIds);
+    this.renderer.render(this.sim.state, this.sim.state.time, this.inspector.pinnedIds, this.camera.state);
     this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
     this.graph.update(this.sim.state.stats, this.sim.state.time);
+    this.inspector.autoPin(this.sim.state);
     this.inspector.update(this.sim.state, this.sim.state.time);
     this.feed.update(this.sim.state.feedEvents);
   };
@@ -137,6 +203,7 @@ class App {
     this.graph.reset();
     this.inspector.clearAll();
     this.feed.reset();
+    this.camera.resetView();
     this.renderer.setTrails(this.trails); // Clear trails on reset
   }
 
@@ -163,6 +230,17 @@ class App {
 
     if (key === 'trailFade') {
       this.renderer.setTrailFade(value as number);
+      return;
+    }
+
+    if (key === 'daynight') {
+      this.dayNightEnabled = !this.dayNightEnabled;
+      this.renderer.setDayNight(this.dayNightEnabled);
+      return;
+    }
+
+    if (key === 'weather') {
+      this.renderer.setWeather(value as boolean);
       return;
     }
 
