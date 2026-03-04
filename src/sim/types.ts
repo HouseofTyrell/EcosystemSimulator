@@ -100,9 +100,12 @@ export interface SimState {
   terrain: Uint8Array;
   herbivores: Herbivore[];
   predators: Predator[];
+  corpses: Corpse[];
   nextId: number;
   stats: SimStats;
   events: SimEvent[];
+  activeEvent: ActiveEvent | null;
+  eventCooldown: number;
 }
 
 export interface SimStats {
@@ -116,6 +119,7 @@ export interface SimStats {
   avgPredatorSize: number;
   avgPredatorVision: number;
   seasonName: string;
+  activeEventName: string;
 }
 
 export interface SimEvent {
@@ -123,6 +127,21 @@ export interface SimEvent {
   creatureType: 'herbivore' | 'predator';
   x: number;
   y: number;
+}
+
+export interface Corpse {
+  x: number;
+  y: number;
+  energy: number;
+  creatureType: 'herbivore' | 'predator';
+  decayTimer: number;
+  maxDecay: number;
+}
+
+export interface ActiveEvent {
+  type: 'drought' | 'bloom' | 'disease';
+  remaining: number;
+  duration: number;
 }
 
 export const DEFAULT_CONFIG: SimConfig = {

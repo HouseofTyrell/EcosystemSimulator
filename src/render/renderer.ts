@@ -221,6 +221,17 @@ export class Renderer {
       }
     }
 
+    // === Corpses ===
+    for (let i = 0; i < state.corpses.length; i++) {
+      const c = state.corpses[i];
+      const sprite = this.plantPool.acquire();
+      sprite.x = c.x * scaleX;
+      sprite.y = c.y * scaleY;
+      sprite.tint = c.creatureType === 'herbivore' ? 0x336644 : 0x884433;
+      sprite.alpha = (c.decayTimer / c.maxDecay) * 0.5;
+      sprite.scale.set(0.6);
+    }
+
     // === 6. Herbivores ===
     for (let i = 0; i < state.herbivores.length; i++) {
       const h = state.herbivores[i];

@@ -1,7 +1,7 @@
 // Main simulation orchestrator
 // Pure logic - no DOM, no rendering
 
-import type { SimConfig, SimState, SimStats, Herbivore, Predator } from './types';
+import type { SimConfig, SimState, SimStats, Herbivore, Predator, Corpse } from './types';
 import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
@@ -19,6 +19,7 @@ import {
   updatePredators,
 } from './agents';
 import { generateTerrain, getTerrainAt } from './terrain';
+import { updateEvents, getEventPlantMultiplier } from './events';
 
 export class Simulation {
   state: SimState;
@@ -43,9 +44,12 @@ export class Simulation {
       terrain: generateTerrain(fullConfig, fullConfig.seed),
       herbivores: [],
       predators: [],
+      corpses: [],
       nextId: 0,
       stats: this.emptyStats(),
       events: [],
+      activeEvent: null,
+      eventCooldown: 0,
     };
 
     this.spawnInitialPopulation();
@@ -63,6 +67,7 @@ export class Simulation {
       avgPredatorSize: 0,
       avgPredatorVision: 0,
       seasonName: 'Spring',
+      activeEventName: '',
     };
   }
 
@@ -143,6 +148,34 @@ export class Simulation {
     const newHerbs = updateHerbivores(state, dt, this.herbHash, this.predHash, this.rng, state.events);
     const newPreds = updatePredators(state, dt, this.herbHash, this.predHash, this.rng, state.events);
 
+    // Create corpses from dead creatures
+    for (let i = 0; i < state.herbivores.length; i++) {
+      const h = state.herbivores[i];
+      if (!h.alive) {
+        state.corpses.push({
+          x: h.pos.x,
+          y: h.pos.y,
+          energy: 20,
+          creatureType: 'herbivore',
+          decayTimer: 15,
+          maxDecay: 15,
+        });
+      }
+    }
+    for (let i = 0; i < state.predators.length; i++) {
+      const p = state.predators[i];
+      if (!p.alive) {
+        state.corpses.push({
+          x: p.pos.x,
+          y: p.pos.y,
+          energy: 25,
+          creatureType: 'predator',
+          decayTimer: 15,
+          maxDecay: 15,
+        });
+      }
+    }
+
     // Remove dead, add newborns
     state.herbivores = state.herbivores.filter(h => h.alive);
     state.predators = state.predators.filter(p => p.alive);
@@ -174,6 +207,14 @@ export class Simulation {
             config
           )
         );
+      }
+    }
+
+    // Decay corpses
+    for (let i = state.corpses.length - 1; i >= 0; i--) {
+      state.corpses[i].decayTimer -= dt;
+      if (state.corpses[i].decayTimer <= 0 || state.corpses[i].energy <= 0) {
+        state.corpses.splice(i, 1);
       }
     }
 
@@ -240,9 +281,12 @@ export class Simulation {
       terrain: generateTerrain(config, config.seed),
       herbivores: [],
       predators: [],
+      corpses: [],
       nextId: 0,
       stats: this.emptyStats(),
       events: [],
+      activeEvent: null,
+      eventCooldown: 0,
     };
     this.diffusionAccum = 0;
     this.spawnInitialPopulation();
