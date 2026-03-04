@@ -32,6 +32,9 @@ class App {
   private accumulator: number = 0;
   private lastTime: number = 0;
   private seed: number;
+  private fpsFrames: number = 0;
+  private fpsLastTime: number = 0;
+  private fps: number = 0;
 
   constructor() {
     this.seed = Math.floor(Math.random() * 999999);
@@ -201,6 +204,14 @@ class App {
     const elapsed = Math.min((now - this.lastTime) / 1000, 0.1); // Cap at 100ms
     this.lastTime = now;
 
+    // FPS counter (update every 500ms)
+    this.fpsFrames++;
+    if (now - this.fpsLastTime >= 500) {
+      this.fps = Math.round(this.fpsFrames / ((now - this.fpsLastTime) / 1000));
+      this.fpsFrames = 0;
+      this.fpsLastTime = now;
+    }
+
     if (!this.paused) {
       this.accumulator += elapsed * this.speed;
 
@@ -234,7 +245,7 @@ class App {
 
     // Render every frame
     this.renderer.render(this.sim.state, this.sim.state.time, this.inspector.pinnedIds, this.camera.state);
-    this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
+    this.ui.updateStats(this.sim.state.stats, this.sim.state.time, this.fps);
     this.graph.update(this.sim.state.stats, this.sim.state.time);
     this.inspector.autoPin(this.sim.state);
     this.inspector.update(this.sim.state, this.sim.state.time);

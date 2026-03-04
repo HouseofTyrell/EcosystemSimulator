@@ -360,8 +360,9 @@ export class UIOverlay {
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
-  updateStats(stats: SimStats, simTime: number): void {
+  updateStats(stats: SimStats, simTime: number, fps?: number): void {
     this.statsEl.innerHTML = `
+      ${fps !== undefined ? `<div><span class="label">FPS:</span> <span class="value">${fps}</span></div>` : ''}
       <div><span class="label">Time:</span> <span class="value">${this.formatTime(simTime)}</span></div>
       <div><span class="label">Season:</span> <span class="season">${stats.seasonName}</span></div>
       <div><span class="label">Period:</span> <span class="value">${stats.timeOfDay}</span></div>

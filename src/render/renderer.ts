@@ -184,6 +184,7 @@ export class Renderer {
   // Particles
   private particles: ActiveParticle[] = [];
   private ambientParticles: AmbientParticle[] = [];
+  private ambientSprites: Sprite[] = []; // frame-only sprites to release next frame
 
   // State
   private trails: boolean;
@@ -714,6 +715,12 @@ export class Renderer {
     }
 
     // === Ambient particles (mist, pollen, fireflies) ===
+    // Release sprites from previous frame
+    for (let i = 0; i < this.ambientSprites.length; i++) {
+      this.particlePool.release(this.ambientSprites[i]);
+    }
+    this.ambientSprites.length = 0;
+
     const maxAmbient = isNight ? 60 : 40;
 
     // Spawn new particles
@@ -788,6 +795,7 @@ export class Renderer {
       }
       sprite.alpha = Math.max(0, alpha);
       sprite.scale.set(ap.scale);
+      this.ambientSprites.push(sprite);
     }
 
     // === Weather visuals ===
@@ -796,31 +804,29 @@ export class Renderer {
       const wi = state.weather.intensity;
 
       if (state.weather.type === 'rain') {
+        // Batch all rain lines into a single stroke call
         const rainCount = Math.floor(wi * 200);
         for (let i = 0; i < rainCount; i++) {
           const rx = ((i * 3571 + Math.floor(time * 200)) % this.worldW);
           const baseY = ((i * 7127 + Math.floor(time * 400)) % (this.worldH + 40)) - 20;
           const len = 8 + (i % 6) * 2.5;
-          this.weatherLayer
-            .moveTo(rx, baseY)
-            .lineTo(rx - 1, baseY + len)
-            .stroke({ color: 0x5577bb, width: 1.5, alpha: wi * 0.4 });
+          this.weatherLayer.moveTo(rx, baseY).lineTo(rx - 1, baseY + len);
         }
+        this.weatherLayer.stroke({ color: 0x5577bb, width: 1.5, alpha: wi * 0.4 });
+
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
           .fill({ color: 0x223355, alpha: wi * 0.1 });
 
-        // Background rain layer (shorter, fainter, slightly different angle)
+        // Background rain layer — single batched stroke
         const bgRainCount = Math.floor(rainCount * 0.5);
         for (let j = 0; j < bgRainCount; j++) {
           const bx = ((j * 5501 + Math.floor(time * 160)) % this.worldW);
           const by = ((j * 8363 + Math.floor(time * 320)) % (this.worldH + 30)) - 15;
           const bgLen = 6 + (j % 4) * 1.5;
-          this.weatherLayer
-            .moveTo(bx, by)
-            .lineTo(bx - 0.5 + Math.sin(0.1) * bgLen, by + Math.cos(0.1) * bgLen)
-            .stroke({ color: 0x8899bb, width: 0.5, alpha: 0.08 * wi });
+          this.weatherLayer.moveTo(bx, by).lineTo(bx - 0.5 + Math.sin(0.1) * bgLen, by + Math.cos(0.1) * bgLen);
         }
+        if (bgRainCount > 0) this.weatherLayer.stroke({ color: 0x8899bb, width: 0.5, alpha: 0.08 * wi });
       }
 
       if (state.weather.type === 'fog') {
@@ -844,6 +850,7 @@ export class Renderer {
       }
 
       if (state.weather.type === 'wind') {
+        // Batch all wind lines into a single stroke call
         const windAngle = state.weather.windAngle;
         const lineCount = Math.floor(wi * 60);
         const cos = Math.cos(windAngle);
@@ -852,11 +859,9 @@ export class Renderer {
           const bx = ((i * 4793 + Math.floor(time * 100 * Math.abs(cos + 0.1))) % this.worldW);
           const by = ((i * 6151 + Math.floor(time * 100 * Math.abs(sin + 0.1))) % this.worldH);
           const len = 15 + (i % 10) * 3;
-          this.weatherLayer
-            .moveTo(bx, by)
-            .lineTo(bx + cos * len, by + sin * len)
-            .stroke({ color: 0x99aabb, width: 1, alpha: wi * 0.22 });
+          this.weatherLayer.moveTo(bx, by).lineTo(bx + cos * len, by + sin * len);
         }
+        if (lineCount > 0) this.weatherLayer.stroke({ color: 0x99aabb, width: 1, alpha: wi * 0.22 });
       }
     }
 
@@ -1016,6 +1021,10 @@ export class Renderer {
     }
     this.particles.length = 0;
     this.ambientParticles.length = 0;
+    for (let i = 0; i < this.ambientSprites.length; i++) {
+      this.particlePool.release(this.ambientSprites[i]);
+    }
+    this.ambientSprites.length = 0;
   }
 
   destroy(): void {
@@ -1025,6 +1034,10 @@ export class Renderer {
     }
     this.particles.length = 0;
     this.ambientParticles.length = 0;
+    for (let i = 0; i < this.ambientSprites.length; i++) {
+      this.particlePool.release(this.ambientSprites[i]);
+    }
+    this.ambientSprites.length = 0;
 
     this.app.destroy(true);
   }
