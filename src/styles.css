@@ -236,3 +236,79 @@ canvas {
   height: 60px;
   pointer-events: none;
 }
+
+/* Creature Inspector */
+#inspector {
+  position: absolute;
+  top: 220px;
+  right: 16px;
+  width: 200px;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector-card {
+  background: rgba(10, 10, 15, 0.88);
+  border: 1px solid #223344;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 10px;
+  transition: opacity 0.5s;
+}
+
+.inspector-card.dead {
+  opacity: 0.4;
+}
+
+.inspector-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.inspector-close {
+  cursor: pointer;
+  color: #667788;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.inspector-close:hover {
+  color: #aabbcc;
+}
+
+.inspector-energy {
+  height: 3px;
+  background: #1a1a2a;
+  border-radius: 2px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.inspector-energy-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.inspector-dead {
+  color: #667788;
+  font-style: italic;
+  text-align: center;
+  padding: 4px;
+}
+
+.inspector-row, .inspector-trait {
+  display: flex;
+  justify-content: space-between;
+  color: #556677;
+  line-height: 1.5;
+}
+
+.inspector-trait span:last-child {
+  color: #7788aa;
+}

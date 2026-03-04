@@ -70,6 +70,7 @@ export class UIOverlay {
       <div><span class="key">4</span> Speed 4x</div>
       <div><span class="key">T</span> Toggle trails</div>
       <div><span class="key">G</span> Toggle graph</div>
+      <div><span class="key">Esc</span> Clear inspector</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
     `;
@@ -104,7 +105,12 @@ export class UIOverlay {
         </div>
         <div class="setting-toggle-row">
           <label>Trails</label>
-          <input type="checkbox" checked data-toggle="trails" />
+          <input type="checkbox" data-toggle="trails" />
+        </div>
+        <div class="setting-row">
+          <label>Trail Fade</label>
+          <input type="range" min="1" max="20" value="3" data-key="trailFade" data-scale="0.01" />
+          <span class="val">0.03</span>
         </div>
         <div class="setting-toggle-row">
           <label>Graph</label>
@@ -245,6 +251,9 @@ export class UIOverlay {
         case 'KeyG':
           cb.onConfigChange('graph', true);
           this.syncToggle('graph', !this.getToggleState('graph'));
+          break;
+        case 'Escape':
+          cb.onConfigChange('inspector', true);
           break;
       }
 

@@ -4,6 +4,7 @@ import { Simulation } from './sim/simulation';
 import { Renderer } from './render/renderer';
 import { UIOverlay } from './ui/overlay';
 import { PopulationGraph } from './ui/graph';
+import { CreatureInspector } from './ui/inspector';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -12,9 +13,10 @@ class App {
   private renderer: Renderer;
   private ui!: UIOverlay;
   private graph!: PopulationGraph;
+  private inspector!: CreatureInspector;
   private paused: boolean = false;
   private speed: number = 1;
-  private trails: boolean = true;
+  private trails: boolean = false;
   private accumulator: number = 0;
   private lastTime: number = 0;
   private seed: number;
@@ -62,6 +64,17 @@ class App {
 
     this.graph = new PopulationGraph(container);
 
+    this.inspector = new CreatureInspector(container);
+
+    this.renderer.app.canvas.addEventListener('click', (e) => {
+      const rect = this.renderer.app.canvas.getBoundingClientRect();
+      const scaleX = this.sim.state.config.worldWidth / rect.width;
+      const scaleY = this.sim.state.config.worldHeight / rect.height;
+      const worldX = (e.clientX - rect.left) * scaleX;
+      const worldY = (e.clientY - rect.top) * scaleY;
+      this.inspector.tryPin(this.sim.state, worldX, worldY);
+    });
+
     // Resize handling
     window.addEventListener('resize', () => {
       const w = window.innerWidth;
@@ -100,9 +113,10 @@ class App {
     }
 
     // Render every frame
-    this.renderer.render(this.sim.state, this.sim.state.time);
+    this.renderer.render(this.sim.state, this.sim.state.time, this.inspector.pinnedIds);
     this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
     this.graph.update(this.sim.state.stats, this.sim.state.time);
+    this.inspector.update(this.sim.state, this.sim.state.time);
   };
 
   private reset(seed: number): void {
@@ -113,6 +127,7 @@ class App {
     this.accumulator = 0;
     this.ui.updateSeed(seed);
     this.graph.reset();
+    this.inspector.clearAll();
     this.renderer.setTrails(this.trails); // Clear trails on reset
   }
 
@@ -128,12 +143,22 @@ class App {
       return;
     }
 
+    if (key === 'trailFade') {
+      this.renderer.setTrailFade(value as number);
+      return;
+    }
+
     if (key === 'wrapWorld') {
       const wrap = value as boolean;
       this.sim.state.config.wrapWorld = wrap;
       this.sim.herbHash.wrap = wrap;
       this.sim.predHash.wrap = wrap;
       this.sim.scavHash.wrap = wrap;
+      return;
+    }
+
+    if (key === 'inspector') {
+      this.inspector.clearAll();
       return;
     }
 

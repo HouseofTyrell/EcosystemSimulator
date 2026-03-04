@@ -79,6 +79,8 @@ export class Renderer {
 
   // State
   private trails: boolean;
+  private trailFadeAlpha: number = 0.03;
+  private trailFrameCount: number = 0;
   private ready: boolean = false;
   private worldW: number;
   private worldH: number;
@@ -143,10 +145,15 @@ export class Renderer {
     this.trails = enabled;
     if (!enabled) {
       this.trailLayer.clear();
+      this.trailFrameCount = 0;
     }
   }
 
-  render(state: SimState, time: number): void {
+  setTrailFade(alpha: number): void {
+    this.trailFadeAlpha = alpha;
+  }
+
+  render(state: SimState, time: number, selectedIds?: number[]): void {
     if (!this.ready) return;
 
     const config = state.config;
@@ -183,6 +190,14 @@ export class Renderer {
 
     // === 2. Trails ===
     if (this.trails) {
+      this.trailFrameCount++;
+
+      // Periodically clear to prevent unbounded Graphics command growth
+      if (this.trailFrameCount > 3600) {
+        this.trailLayer.clear();
+        this.trailFrameCount = 0;
+      }
+
       for (let i = 0; i < state.herbivores.length; i++) {
         const h = state.herbivores[i];
         this.trailLayer
@@ -205,7 +220,7 @@ export class Renderer {
       this.fadeOverlay.clear();
       this.fadeOverlay
         .rect(0, 0, this.worldW, this.worldH)
-        .fill({ color: 0x0a0a0f, alpha: 0.015 });
+        .fill({ color: 0x0a0a0f, alpha: this.trailFadeAlpha });
     }
 
     // === 3. Release all pools ===
@@ -307,6 +322,15 @@ export class Renderer {
       glowH.tint = 0x55ddaa;
       glowH.alpha = 0.3 + 0.1 * Math.sin(time * 2 + h.id);
       glowH.scale.set(baseScale * 1.8);
+
+      if (selectedIds && selectedIds.includes(h.id)) {
+        const ring = this.glowPool.acquire();
+        ring.x = sprite.x;
+        ring.y = sprite.y;
+        ring.tint = 0x55ddaa;
+        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 2.5);
+      }
     }
 
     // === 7. Predators ===
@@ -342,6 +366,15 @@ export class Renderer {
       glowP.tint = 0xee6655;
       glowP.alpha = 0.3 + 0.1 * Math.sin(time * 2 + p.id);
       glowP.scale.set(baseScale * 1.8);
+
+      if (selectedIds && selectedIds.includes(p.id)) {
+        const ring = this.glowPool.acquire();
+        ring.x = sprite.x;
+        ring.y = sprite.y;
+        ring.tint = 0xee6655;
+        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 2.5);
+      }
     }
 
     // === 8. Scavengers ===
@@ -365,6 +398,15 @@ export class Renderer {
       glowS.tint = 0xccaa44;
       glowS.alpha = 0.3 + 0.1 * Math.sin(time * 2 + s.id);
       glowS.scale.set(baseScale * 1.8);
+
+      if (selectedIds && selectedIds.includes(s.id)) {
+        const ring = this.glowPool.acquire();
+        ring.x = sprite.x;
+        ring.y = sprite.y;
+        ring.tint = 0xccaa44;
+        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 2.5);
+      }
     }
 
     // === 9. Process events ===
