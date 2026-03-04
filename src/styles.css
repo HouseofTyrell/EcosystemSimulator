@@ -204,7 +204,7 @@ canvas {
 /* Speed indicator */
 #speed-indicator {
   position: absolute;
-  bottom: 16px;
+  bottom: 66px;
   left: 16px;
   font-size: 11px;
   color: #667788;
@@ -212,17 +212,19 @@ canvas {
   padding: 4px 8px;
   border-radius: 4px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  z-index: 10;
 }
 
 /* Pause indicator */
 #pause-indicator {
   position: absolute;
-  bottom: 16px;
+  bottom: 66px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 13px;
   color: #667788;
   display: none;
+  z-index: 10;
 }
 
 #pause-indicator.visible {
@@ -232,7 +234,7 @@ canvas {
 /* Seed display */
 #seed-display {
   position: absolute;
-  bottom: 16px;
+  bottom: 66px;
   right: 16px;
   font-size: 10px;
   color: #556677;
@@ -240,6 +242,7 @@ canvas {
   padding: 4px 8px;
   border-radius: 4px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  z-index: 10;
 }
 
 #trait-sparklines {
@@ -261,14 +264,13 @@ canvas {
 /* Creature Inspector */
 #inspector {
   position: absolute;
-  top: 16px;
+  top: 320px;
   left: 16px;
   width: 200px;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 130px;
 }
 
 .inspector-card {
@@ -354,10 +356,10 @@ canvas {
 /* Event Feed */
 #event-feed {
   position: absolute;
-  bottom: 70px;
+  bottom: 100px;
   right: 16px;
   width: 220px;
-  pointer-events: none;
+  pointer-events: auto;
   font-size: 10px;
   background: rgba(5, 5, 10, 0.6);
   padding: 6px 10px;
@@ -405,7 +407,7 @@ canvas {
 /* Minimap */
 #minimap {
   position: fixed;
-  bottom: 80px;
+  bottom: 100px;
   left: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
