@@ -6,6 +6,7 @@ export interface GeneratedTextures {
   scavenger: Texture;
   plant: Texture;
   particle: Texture;
+  glow: Texture;
 }
 
 export function generateTextures(app: Application): GeneratedTextures {
@@ -58,6 +59,13 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
+  // Glow: ring for creature highlight
+  const glowG = new Graphics();
+  glowG.circle(0, 0, 10);
+  glowG.stroke({ color: 0xffffff, width: 1.5, alpha: 0.6 });
+  const glow = app.renderer.generateTexture({ target: glowG, resolution: 2 });
+  glowG.destroy();
+
   // Cleanup temp graphics
   herbG.destroy();
   predG.destroy();
@@ -65,5 +73,5 @@ export function generateTextures(app: Application): GeneratedTextures {
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, scavenger, plant, particle };
+  return { herbivore, predator, scavenger, plant, particle, glow };
 }

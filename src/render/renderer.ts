@@ -56,6 +56,7 @@ export class Renderer {
   private backgroundLayer: Graphics;
   private plantContainer: Container;
   private particleContainer: Container;
+  private glowContainer: Container;
   private herbivoreContainer: Container;
   private scavengerContainer: Container;
   private predatorContainer: Container;
@@ -68,6 +69,7 @@ export class Renderer {
   private scavPool!: SpritePool;
   private predPool!: SpritePool;
   private particlePool!: SpritePool;
+  private glowPool!: SpritePool;
 
   // Textures
   private textures!: GeneratedTextures;
@@ -86,6 +88,7 @@ export class Renderer {
     this.backgroundLayer = new Graphics();
     this.plantContainer = new Container();
     this.particleContainer = new Container();
+    this.glowContainer = new Container();
     this.herbivoreContainer = new Container();
     this.scavengerContainer = new Container();
     this.predatorContainer = new Container();
@@ -120,6 +123,7 @@ export class Renderer {
     this.app.stage.addChild(this.fadeOverlay);
     this.app.stage.addChild(this.plantContainer);
     this.app.stage.addChild(this.particleContainer);
+    this.app.stage.addChild(this.glowContainer);
     this.app.stage.addChild(this.herbivoreContainer);
     this.app.stage.addChild(this.scavengerContainer);
     this.app.stage.addChild(this.predatorContainer);
@@ -130,6 +134,7 @@ export class Renderer {
     this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
     this.particlePool = new SpritePool(this.textures.particle, this.particleContainer);
+    this.glowPool = new SpritePool(this.textures.glow, this.glowContainer);
 
     this.ready = true;
   }
@@ -202,6 +207,7 @@ export class Renderer {
     this.herbPool.releaseAll();
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
+    this.glowPool.releaseAll();
 
     const cols = config.plantGridCols;
     const rows = config.plantGridRows;
@@ -271,7 +277,7 @@ export class Renderer {
 
       sprite.x = h.pos.x * scaleX;
       sprite.y = h.pos.y * scaleY;
-      sprite.tint = 0x44cc77;
+      sprite.tint = 0x55ddaa;
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
       // Base scale from size trait with breathing animation
@@ -288,6 +294,13 @@ export class Renderer {
       }
 
       sprite.alpha = alpha;
+
+      const glowH = this.glowPool.acquire();
+      glowH.x = sprite.x;
+      glowH.y = sprite.y;
+      glowH.tint = 0x55ddaa;
+      glowH.alpha = 0.3 + 0.1 * Math.sin(time * 2 + h.id);
+      glowH.scale.set(baseScale * 1.8);
     }
 
     // === 7. Predators ===
@@ -316,6 +329,13 @@ export class Renderer {
       }
 
       sprite.alpha = alpha;
+
+      const glowP = this.glowPool.acquire();
+      glowP.x = sprite.x;
+      glowP.y = sprite.y;
+      glowP.tint = 0xee6655;
+      glowP.alpha = 0.3 + 0.1 * Math.sin(time * 2 + p.id);
+      glowP.scale.set(baseScale * 1.8);
     }
 
     // === 8. Scavengers ===
@@ -332,6 +352,13 @@ export class Renderer {
       let alpha = 0.4 + Math.min(s.traits.visionRange / 150, 1) * 0.6;
       if (s.energy < 25) alpha *= Math.max(0.35, s.energy / 25);
       sprite.alpha = alpha;
+
+      const glowS = this.glowPool.acquire();
+      glowS.x = sprite.x;
+      glowS.y = sprite.y;
+      glowS.tint = 0xccaa44;
+      glowS.alpha = 0.3 + 0.1 * Math.sin(time * 2 + s.id);
+      glowS.scale.set(baseScale * 1.8);
     }
 
     // === 9. Process events ===
