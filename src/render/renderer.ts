@@ -22,6 +22,19 @@ interface ActiveParticle {
   maxLife: number;
 }
 
+interface AmbientParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  tint: number;
+  alpha: number;
+  scale: number;
+  type: 'mist' | 'pollen' | 'firefly';
+}
+
 // Seasonal background colors
 const SEASON_COLORS = [
   { r: 0x18, g: 0x33, b: 0x18 }, // Spring: lush green
@@ -170,6 +183,7 @@ export class Renderer {
 
   // Particles
   private particles: ActiveParticle[] = [];
+  private ambientParticles: AmbientParticle[] = [];
 
   // State
   private trails: boolean;
@@ -327,6 +341,7 @@ export class Renderer {
     // Dawn/dusk warm tint — enhanced golden hour
     const isDawn = state.dayPhase < 0.2;
     const isDusk = state.dayPhase > 0.55 && state.dayPhase < 0.75;
+    const isNight = state.dayPhase > 0.75 || state.dayPhase < 0.05;
     if (this.dayNightEnabled && (isDawn || isDusk)) {
       const progress = isDawn ? (1 - state.dayPhase / 0.2) : ((state.dayPhase - 0.55) / 0.2);
       const tintColor = isDawn ? 0xdd8844 : 0xcc5522;
@@ -692,6 +707,83 @@ export class Renderer {
       part.sprite.scale.set(t * 0.8);
     }
 
+    // === Ambient particles (mist, pollen, fireflies) ===
+    const maxAmbient = isNight ? 60 : 40;
+
+    // Spawn new particles
+    while (this.ambientParticles.length < maxAmbient) {
+      const roll = Math.random();
+      if (isNight && roll < 0.4) {
+        // Firefly
+        this.ambientParticles.push({
+          x: Math.random() * this.worldW,
+          y: Math.random() * this.worldH,
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 3,
+          life: 4 + Math.random() * 4,
+          maxLife: 8,
+          tint: 0xffeebb,
+          alpha: 0.25,
+          scale: 0.3,
+          type: 'firefly',
+        });
+      } else if (roll < 0.6) {
+        // Mist near water (light-blue, drifts upward)
+        this.ambientParticles.push({
+          x: Math.random() * this.worldW,
+          y: Math.random() * this.worldH,
+          vx: (Math.random() - 0.5) * 2,
+          vy: -0.5 - Math.random() * 0.5,
+          life: 3 + Math.random() * 3,
+          maxLife: 6,
+          tint: 0x8899cc,
+          alpha: 0.12,
+          scale: 0.5,
+          type: 'mist',
+        });
+      } else {
+        // Pollen over vegetation (drifts with wind)
+        this.ambientParticles.push({
+          x: Math.random() * this.worldW,
+          y: Math.random() * this.worldH,
+          vx: (Math.random() - 0.5) * 4 + (state.weather.type === 'wind' ? state.weather.intensity * 8 : 0),
+          vy: (Math.random() - 0.5) * 2,
+          life: 2 + Math.random() * 3,
+          maxLife: 5,
+          tint: 0xaacc55,
+          alpha: 0.1,
+          scale: 0.25,
+          type: 'pollen',
+        });
+      }
+    }
+
+    // Update and render ambient particles
+    for (let i = this.ambientParticles.length - 1; i >= 0; i--) {
+      const ap = this.ambientParticles[i];
+      ap.x += ap.vx * dt;
+      ap.y += ap.vy * dt;
+      ap.life -= dt;
+      if (ap.life <= 0 || ap.x < -10 || ap.x > this.worldW + 10 || ap.y < -10 || ap.y > this.worldH + 10) {
+        this.ambientParticles.splice(i, 1);
+        continue;
+      }
+
+      const sprite = this.particlePool.acquire();
+      sprite.texture = this.textures.particle;
+      sprite.x = ap.x;
+      sprite.y = ap.y;
+      sprite.tint = ap.tint;
+      const fadeRatio = ap.life / ap.maxLife;
+      let alpha = ap.alpha * fadeRatio;
+      // Firefly pulsing
+      if (ap.type === 'firefly') {
+        alpha *= 0.5 + 0.5 * Math.sin(time * 3 + i * 1.7);
+      }
+      sprite.alpha = Math.max(0, alpha);
+      sprite.scale.set(ap.scale);
+    }
+
     // === Weather visuals ===
     this.weatherLayer.clear();
     if (this.weatherEnabled && state.weather.type !== 'clear' && state.weather.intensity > 0.01) {
@@ -891,6 +983,7 @@ export class Renderer {
       this.particlePool.release(this.particles[i].sprite);
     }
     this.particles.length = 0;
+    this.ambientParticles.length = 0;
   }
 
   destroy(): void {
@@ -899,6 +992,7 @@ export class Renderer {
       this.particlePool.release(this.particles[i].sprite);
     }
     this.particles.length = 0;
+    this.ambientParticles.length = 0;
 
     this.app.destroy(true);
   }
