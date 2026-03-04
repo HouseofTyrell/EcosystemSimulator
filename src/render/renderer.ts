@@ -429,6 +429,7 @@ export class Renderer {
     }
 
     // === 5. Plants — clustered dots to break grid pattern ===
+    const hasWind = state.weather?.type === 'wind' && state.weather.intensity > 0;
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const idx = y * cols + x;
@@ -438,6 +439,11 @@ export class Renderer {
         const norm = Math.min(density / config.plantCarryingCapacity, 1);
         const dotCount = norm > 0.7 ? 3 : norm > 0.35 ? 2 : 1;
 
+        // Wind sway offset for plants
+        const windOffset = hasWind
+          ? Math.sin(time * 1.5 + idx * 0.3) * state.weather.intensity * 2
+          : 0;
+
         for (let d = 0; d < dotCount; d++) {
           const sprite = this.plantPool.acquire();
           // Each sub-dot has unique deterministic jitter
@@ -445,7 +451,7 @@ export class Renderer {
           const seed2 = ((idx * 340573321 + d * 22291) >>> 0) / 0xffffffff;
           const jx = (seed1 - 0.5) * cellW * 1.4;
           const jy = (seed2 - 0.5) * cellH * 1.4;
-          sprite.x = x * cellW + cellW * 0.5 + jx;
+          sprite.x = x * cellW + cellW * 0.5 + jx + windOffset;
           sprite.y = y * cellH + cellH * 0.5 + jy;
           // Vary green per dot for texture
           const greenVar = 0x28 + Math.floor(seed1 * 0x18);
@@ -803,12 +809,38 @@ export class Renderer {
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
           .fill({ color: 0x223355, alpha: wi * 0.1 });
+
+        // Background rain layer (shorter, fainter, slightly different angle)
+        const bgRainCount = Math.floor(rainCount * 0.5);
+        for (let j = 0; j < bgRainCount; j++) {
+          const bx = ((j * 5501 + Math.floor(time * 160)) % this.worldW);
+          const by = ((j * 8363 + Math.floor(time * 320)) % (this.worldH + 30)) - 15;
+          const bgLen = 6 + (j % 4) * 1.5;
+          this.weatherLayer
+            .moveTo(bx, by)
+            .lineTo(bx - 0.5 + Math.sin(0.1) * bgLen, by + Math.cos(0.1) * bgLen)
+            .stroke({ color: 0x8899bb, width: 0.5, alpha: 0.08 * wi });
+        }
       }
 
       if (state.weather.type === 'fog') {
+        // Subtle flat tint base
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
-          .fill({ color: 0xddddcc, alpha: wi * 0.22 });
+          .fill({ color: 0xddddcc, alpha: wi * 0.08 });
+
+        // Volumetric fog blobs using glow sprites
+        const fogCount = Math.floor(3 + wi * 4);
+        for (let f = 0; f < fogCount; f++) {
+          const fogSprite = this.glowPool.acquire();
+          const seed = f * 137.5;
+          fogSprite.texture = this.textures.glow;
+          fogSprite.x = ((seed + time * 5) % this.worldW);
+          fogSprite.y = ((seed * 2.3 + time * 3) % this.worldH);
+          fogSprite.tint = 0xccccbb;
+          fogSprite.alpha = wi * 0.12;
+          fogSprite.scale.set(20 + wi * 15);
+        }
       }
 
       if (state.weather.type === 'wind') {
