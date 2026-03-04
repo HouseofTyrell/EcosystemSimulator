@@ -292,9 +292,9 @@ class App {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const scale = (w * h) / (1920 * 1080);
-    this.sim.state.config.maxHerbivores = Math.floor(60 * scale);
-    this.sim.state.config.maxPredators = Math.floor(20 * scale);
-    this.sim.state.config.maxScavengers = Math.floor(15 * scale);
+    this.sim.state.config.maxHerbivores = Math.floor(800 * scale);
+    this.sim.state.config.maxPredators = Math.floor(250 * scale);
+    this.sim.state.config.maxScavengers = Math.floor(150 * scale);
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {
