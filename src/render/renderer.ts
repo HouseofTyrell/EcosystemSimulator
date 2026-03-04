@@ -1,7 +1,7 @@
 // PixiJS v8 renderer using pooled Sprites for efficient ecosystem rendering
 // Replaces per-frame Graphics redraws with sprite acquire/release pattern
 
-import { Application, Graphics, Container, Sprite, BlurFilter } from 'pixi.js';
+import { Application, Graphics, Container, Sprite, BlurFilter, RenderTexture } from 'pixi.js';
 import type { SimState } from '../sim/types';
 import { SpritePool } from './sprite-pool';
 import { generateTextures, type GeneratedTextures } from './textures';
@@ -154,6 +154,16 @@ export class Renderer {
   private glowPool!: SpritePool;
   private shadowPool!: SpritePool;
 
+  // Terrain cache
+  private terrainTexture: RenderTexture | null = null;
+  private terrainSprite: Sprite | null = null;
+  private terrainGraphics: Graphics = new Graphics();
+  private terrainDirty: boolean = true;
+  private lastTerrainSeason: number = -1;
+  private lastTerrainEvent: string = '';
+  private waterOverlay: Graphics = new Graphics();
+  private waterFrame: number = 0;
+
   // Textures
   private textures!: GeneratedTextures;
 
@@ -207,8 +217,18 @@ export class Renderer {
     // Generate textures
     this.textures = generateTextures(this.app);
 
+    // Create terrain cache RenderTexture
+    this.terrainTexture = RenderTexture.create({
+      width: options.width,
+      height: options.height,
+      resolution: 1,
+    });
+    this.terrainSprite = new Sprite(this.terrainTexture);
+
     // Add layers to stage in proper z-order
     this.app.stage.addChild(this.backgroundLayer);
+    this.app.stage.addChild(this.terrainSprite!);
+    this.app.stage.addChild(this.waterOverlay);
     this.app.stage.addChild(this.trailLayer);
     this.app.stage.addChild(this.fadeOverlay);
     this.app.stage.addChild(this.plantContainer);
@@ -362,81 +382,22 @@ export class Renderer {
     const cellW = this.worldW / cols;
     const cellH = this.worldH / rows;
 
-    // === 4. Terrain — adaptive corner rounding (only round exterior corners) ===
-    const terrainR = Math.min(cellW, cellH) * 0.5;
-    const terrainPad = 2;
-
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const idx = y * cols + x;
-        const t = state.terrain[idx];
-        if (t === 0) continue; // Skip land
-
-        // Check neighbors (same type = interior edge, different = exterior)
-        const left  = x > 0       ? state.terrain[idx - 1]    : 0;
-        const right = x < cols - 1 ? state.terrain[idx + 1]    : 0;
-        const above = y > 0       ? state.terrain[idx - cols]  : 0;
-        const below = y < rows - 1 ? state.terrain[idx + cols]  : 0;
-
-        // A corner is exterior if at least one adjacent edge neighbor differs
-        const rTL = !(left === t && above === t);
-        const rTR = !(right === t && above === t);
-        const rBL = !(left === t && below === t);
-        const rBR = !(right === t && below === t);
-
-        const px = x * cellW - terrainPad;
-        const py = y * cellH - terrainPad;
-        const pw = cellW + terrainPad * 2;
-        const ph = cellH + terrainPad * 2;
-        const cr = Math.min(terrainR, pw / 2, ph / 2);
-        const tl = rTL ? cr : 0;
-        const tr = rTR ? cr : 0;
-        const bl = rBL ? cr : 0;
-        const br = rBR ? cr : 0;
-
-        // Draw cell with per-corner rounding using arcTo
-        this.backgroundLayer.moveTo(px + tl, py);
-        this.backgroundLayer.lineTo(px + pw - tr, py);
-        if (tr > 0) this.backgroundLayer.arcTo(px + pw, py, px + pw, py + tr, tr);
-        else this.backgroundLayer.lineTo(px + pw, py);
-        this.backgroundLayer.lineTo(px + pw, py + ph - br);
-        if (br > 0) this.backgroundLayer.arcTo(px + pw, py + ph, px + pw - br, py + ph, br);
-        else this.backgroundLayer.lineTo(px + pw, py + ph);
-        this.backgroundLayer.lineTo(px + bl, py + ph);
-        if (bl > 0) this.backgroundLayer.arcTo(px, py + ph, px, py + ph - bl, bl);
-        else this.backgroundLayer.lineTo(px, py + ph);
-        this.backgroundLayer.lineTo(px, py + tl);
-        if (tl > 0) this.backgroundLayer.arcTo(px, py, px + tl, py, tl);
-        else this.backgroundLayer.lineTo(px, py);
-        this.backgroundLayer.closePath();
-
-        if (t === 1) {
-          const shimmer = 0.03 * Math.sin(time * 1.5 + x * 0.3 + y * 0.5);
-          this.backgroundLayer.fill({ color: 0x0f2844, alpha: 0.65 + shimmer });
-        } else if (t === 3) {
-          this.backgroundLayer.fill({ color: 0x2a2520, alpha: 0.7 });
-        } else if (t === 2) {
-          this.backgroundLayer.fill({ color: 0x0a1a08, alpha: 0.35 });
-        }
-      }
+    // === 4. Terrain (cached) ===
+    const currentEvent = state.activeEvent?.type || '';
+    if (
+      this.terrainDirty ||
+      Math.abs(state.season - this.lastTerrainSeason) > 0.01 ||
+      currentEvent !== this.lastTerrainEvent
+    ) {
+      this.renderTerrain(state);
+      this.lastTerrainSeason = state.season;
+      this.lastTerrainEvent = currentEvent;
     }
 
-    // Shore shimmer — subtle brighter fill on outermost water cells
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const idx = y * cols + x;
-        if (state.terrain[idx] !== 1) continue;
-        const left  = x > 0       ? state.terrain[idx - 1]    : 0;
-        const right = x < cols - 1 ? state.terrain[idx + 1]    : 0;
-        const above = y > 0       ? state.terrain[idx - cols]  : 0;
-        const below = y < rows - 1 ? state.terrain[idx + cols]  : 0;
-        if (left === 1 && right === 1 && above === 1 && below === 1) continue;
-        // Lighter water tint on shore cells — no outline, just a brighter fill
-        const shoreShimmer = 0.06 + 0.03 * Math.sin(time * 2 + x + y);
-        this.backgroundLayer
-          .rect(x * cellW, y * cellH, cellW, cellH)
-          .fill({ color: 0x2255aa, alpha: shoreShimmer });
-      }
+    // Animated water shimmer overlay (every 3rd frame)
+    this.waterFrame++;
+    if (this.waterFrame % 3 === 0) {
+      this.renderWaterOverlay(state, time);
     }
 
     // === 5. Plants — clustered dots to break grid pattern ===
@@ -787,12 +748,130 @@ export class Renderer {
     }
   }
 
+  private renderTerrain(state: SimState): void {
+    this.terrainGraphics.clear();
+    const config = state.config;
+    const cols = config.plantGridCols;
+    const rows = config.plantGridRows;
+    const cellW = this.worldW / cols;
+    const cellH = this.worldH / rows;
+
+    const terrainR = Math.min(cellW, cellH) * 0.5;
+    const terrainPad = 2;
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const t = state.terrain[idx];
+        if (t === 0) continue; // Skip land
+
+        // Check neighbors (same type = interior edge, different = exterior)
+        const left  = x > 0       ? state.terrain[idx - 1]    : 0;
+        const right = x < cols - 1 ? state.terrain[idx + 1]    : 0;
+        const above = y > 0       ? state.terrain[idx - cols]  : 0;
+        const below = y < rows - 1 ? state.terrain[idx + cols]  : 0;
+
+        // A corner is exterior if at least one adjacent edge neighbor differs
+        const rTL = !(left === t && above === t);
+        const rTR = !(right === t && above === t);
+        const rBL = !(left === t && below === t);
+        const rBR = !(right === t && below === t);
+
+        const px = x * cellW - terrainPad;
+        const py = y * cellH - terrainPad;
+        const pw = cellW + terrainPad * 2;
+        const ph = cellH + terrainPad * 2;
+        const cr = Math.min(terrainR, pw / 2, ph / 2);
+        const tl = rTL ? cr : 0;
+        const tr = rTR ? cr : 0;
+        const bl = rBL ? cr : 0;
+        const br = rBR ? cr : 0;
+
+        // Draw cell with per-corner rounding using arcTo
+        this.terrainGraphics.moveTo(px + tl, py);
+        this.terrainGraphics.lineTo(px + pw - tr, py);
+        if (tr > 0) this.terrainGraphics.arcTo(px + pw, py, px + pw, py + tr, tr);
+        else this.terrainGraphics.lineTo(px + pw, py);
+        this.terrainGraphics.lineTo(px + pw, py + ph - br);
+        if (br > 0) this.terrainGraphics.arcTo(px + pw, py + ph, px + pw - br, py + ph, br);
+        else this.terrainGraphics.lineTo(px + pw, py + ph);
+        this.terrainGraphics.lineTo(px + bl, py + ph);
+        if (bl > 0) this.terrainGraphics.arcTo(px, py + ph, px, py + ph - bl, bl);
+        else this.terrainGraphics.lineTo(px, py + ph);
+        this.terrainGraphics.lineTo(px, py + tl);
+        if (tl > 0) this.terrainGraphics.arcTo(px, py, px + tl, py, tl);
+        else this.terrainGraphics.lineTo(px, py);
+        this.terrainGraphics.closePath();
+
+        if (t === 1) {
+          this.terrainGraphics.fill({ color: 0x0f2844, alpha: 0.65 });
+        } else if (t === 3) {
+          this.terrainGraphics.fill({ color: 0x2a2520, alpha: 0.7 });
+        } else if (t === 2) {
+          this.terrainGraphics.fill({ color: 0x0a1a08, alpha: 0.35 });
+        }
+      }
+    }
+
+    // Render into cached texture
+    this.app.renderer.render({
+      container: this.terrainGraphics,
+      target: this.terrainTexture!,
+      clear: true,
+    });
+    this.terrainDirty = false;
+  }
+
+  private renderWaterOverlay(state: SimState, time: number): void {
+    this.waterOverlay.clear();
+    const config = state.config;
+    const cols = config.plantGridCols;
+    const rows = config.plantGridRows;
+    const cellW = this.worldW / cols;
+    const cellH = this.worldH / rows;
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        if (state.terrain[idx] !== 1) continue; // Only water (TerrainType.Water = 1)
+
+        // Check if shore cell (has non-water neighbor)
+        const left  = x > 0       ? state.terrain[idx - 1] : 0;
+        const right = x < cols - 1 ? state.terrain[idx + 1] : 0;
+        const above = y > 0       ? state.terrain[idx - cols] : 0;
+        const below = y < rows - 1 ? state.terrain[idx + cols] : 0;
+        const isShore = left !== 1 || right !== 1 || above !== 1 || below !== 1;
+
+        const cx = x * cellW + cellW / 2;
+        const cy = y * cellH + cellH / 2;
+        const shimmer = 0.03 * Math.sin(time * 1.5 + x * 0.3 + y * 0.5);
+
+        if (isShore) {
+          this.waterOverlay
+            .circle(cx, cy, cellW * 0.4)
+            .fill({ color: 0x4488cc, alpha: 0.06 + shimmer });
+        } else {
+          // Deep water caustic
+          const a1 = Math.sin(time * 0.8 + x * 0.7 + y * 0.3) * 0.5 + 0.5;
+          this.waterOverlay
+            .ellipse(cx + a1 * 3, cy + a1 * 2, cellW * 0.3, cellH * 0.25)
+            .fill({ color: 0x3366aa, alpha: 0.04 + shimmer * 0.5 });
+        }
+      }
+    }
+  }
+
   resize(width: number, height: number): void {
     if (!this.ready) return;
     this.app.renderer.resize(width, height);
     this.worldW = width;
     this.worldH = height;
     this.trailLayer.clear();
+
+    if (this.terrainTexture) {
+      this.terrainTexture.resize(width, height);
+      this.terrainDirty = true;
+    }
 
     // Clear particles on resize
     for (let i = this.particles.length - 1; i >= 0; i--) {
