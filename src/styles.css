@@ -163,6 +163,39 @@ canvas {
   font-size: 10px;
 }
 
+.settings-section-label {
+  color: #556677;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  margin-top: 2px;
+}
+
+.settings-divider {
+  border-top: 1px solid #223344;
+  margin: 8px 0;
+}
+
+.setting-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.setting-toggle-row label {
+  color: #556677;
+  font-size: 11px;
+}
+
+.setting-toggle-row input[type="checkbox"] {
+  accent-color: #446688;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
 /* Speed indicator */
 #speed-indicator {
   position: absolute;

@@ -24,7 +24,7 @@ export class UIOverlay {
   private seedEl: HTMLDivElement;
   private fadeTimeout: ReturnType<typeof setTimeout> | null = null;
   private callbacks: UICallbacks;
-  private settingsCollapsed: boolean = true;
+  private settingsCollapsed: boolean = false;
   private helpVisible: boolean = false;
 
   constructor(container: HTMLElement, callbacks: UICallbacks) {
@@ -77,7 +77,7 @@ export class UIOverlay {
     // Settings panel
     this.settingsEl = document.createElement('div');
     this.settingsEl.id = 'settings';
-    this.settingsEl.classList.add('collapsed');
+    // Settings starts expanded so users can discover display toggles
     this.buildSettings();
     this.overlay.appendChild(this.settingsEl);
 
@@ -93,9 +93,32 @@ export class UIOverlay {
     this.settingsEl.innerHTML = `
       <div class="settings-header">
         <span>Settings</span>
-        <span class="toggle-icon">+</span>
+        <span class="toggle-icon">&minus;</span>
       </div>
       <div class="settings-body">
+        <div class="settings-section-label">Display</div>
+        <div class="setting-toggle-row">
+          <label>Stats</label>
+          <input type="checkbox" checked data-toggle="stats" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Trails</label>
+          <input type="checkbox" data-toggle="trails" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Graph</label>
+          <input type="checkbox" checked data-toggle="graph" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Event Feed</label>
+          <input type="checkbox" checked data-toggle="feed" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Help</label>
+          <input type="checkbox" data-toggle="help" />
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-section-label">Simulation</div>
         <div class="setting-row">
           <label>Mutation Rate</label>
           <input type="range" min="0" max="40" value="10" data-key="mutationRate" data-scale="0.01" />
@@ -147,6 +170,26 @@ export class UIOverlay {
         cb.onConfigChange(key, val);
       });
     });
+
+    // Display toggles
+    const toggles = this.settingsEl.querySelectorAll('input[type="checkbox"]');
+    toggles.forEach((input) => {
+      const el = input as HTMLInputElement;
+      el.addEventListener('change', () => {
+        const key = el.dataset.toggle!;
+        if (key === 'stats') {
+          this.statsEl.style.display = el.checked ? 'block' : 'none';
+        } else if (key === 'help') {
+          this.helpVisible = el.checked;
+          this.helpEl.classList.toggle('visible', el.checked);
+        } else if (key === 'trails') {
+          cb.onConfigChange('trails', true);
+        } else {
+          // graph, feed — handled by main via onConfigChange
+          cb.onConfigChange(key, el.checked);
+        }
+      });
+    });
   }
 
   private setupKeyboard(): void {
@@ -180,6 +223,7 @@ export class UIOverlay {
           break;
         case 'KeyH':
           this.toggleHelp();
+          this.syncToggle('help', this.helpVisible);
           break;
         case 'KeyS':
           this.settingsCollapsed = !this.settingsCollapsed;
@@ -189,6 +233,7 @@ export class UIOverlay {
           break;
         case 'KeyT':
           cb.onConfigChange('trails', true); // toggled by main
+          this.syncToggle('trails', !this.getToggleState('trails'));
           break;
       }
 
@@ -214,6 +259,16 @@ export class UIOverlay {
         this.overlay.classList.add('hidden');
       }
     }, 5000);
+  }
+
+  syncToggle(key: string, checked: boolean): void {
+    const el = this.settingsEl.querySelector(`input[data-toggle="${key}"]`) as HTMLInputElement | null;
+    if (el) el.checked = checked;
+  }
+
+  private getToggleState(key: string): boolean {
+    const el = this.settingsEl.querySelector(`input[data-toggle="${key}"]`) as HTMLInputElement | null;
+    return el ? el.checked : false;
   }
 
   private toggleHelp(): void {
