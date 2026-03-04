@@ -154,7 +154,7 @@ export function steerHerbivore(
 
   // 3) Separation from other herbivores
   const herbBuf: Herbivore[] = [];
-  herbHash.query(h.pos, 25, herbBuf);
+  herbHash.query(h.pos, 40, herbBuf);
   for (let i = 0; i < herbBuf.length; i++) {
     const other = herbBuf[i];
     if (other.id === h.id) continue;
@@ -165,6 +165,43 @@ export function steerHerbivore(
     const strength = 15 / d;
     fx -= (delta.x / d) * strength;
     fy -= (delta.y / d) * strength;
+  }
+
+  // 3b) Alignment: match velocity of nearby herbivores
+  if (herbBuf.length > 1) { // herbBuf already populated from separation query
+    let avgVx = 0, avgVy = 0;
+    let count = 0;
+    for (let i = 0; i < herbBuf.length; i++) {
+      if (herbBuf[i].id === h.id) continue;
+      avgVx += herbBuf[i].vel.x;
+      avgVy += herbBuf[i].vel.y;
+      count++;
+    }
+    if (count > 0) {
+      avgVx /= count;
+      avgVy /= count;
+      fx += (avgVx - h.vel.x) * 0.15;
+      fy += (avgVy - h.vel.y) * 0.15;
+    }
+  }
+
+  // 3c) Cohesion: steer toward center of nearby herbivores
+  if (herbBuf.length > 1) {
+    let cx = 0, cy = 0;
+    let count = 0;
+    for (let i = 0; i < herbBuf.length; i++) {
+      if (herbBuf[i].id === h.id) continue;
+      const delta = herbHash.wrappedDelta(h.pos, herbBuf[i].pos);
+      cx += delta.x;
+      cy += delta.y;
+      count++;
+    }
+    if (count > 0) {
+      cx /= count;
+      cy /= count;
+      fx += cx * 0.12;
+      fy += cy * 0.12;
+    }
   }
 
   // 4) Wander noise
@@ -204,7 +241,13 @@ export function steerPredator(
   if (closestDelta) {
     const d = Math.sqrt(closestDist);
     if (d > 1) {
-      const strength = 80 * (0.3 + hunger * 0.7);
+      // Pack coordination: more predators = stronger attraction
+      const nearbyPreds: Predator[] = [];
+      predHash.query(p.pos, 60, nearbyPreds);
+      const packSize = nearbyPreds.length; // includes self
+      const packBonus = 1 + 0.25 * Math.min(packSize - 1, 3); // 1x solo, up to 1.75x in pack of 4+
+
+      const strength = 80 * (0.3 + hunger * 0.7) * packBonus;
       fx += (closestDelta.x / d) * strength;
       fy += (closestDelta.y / d) * strength;
     }
