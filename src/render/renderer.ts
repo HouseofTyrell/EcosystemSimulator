@@ -221,9 +221,10 @@ export class Renderer {
         sprite.scale.set(1.2);
 
         if (t === 1) {
-          // Water
-          sprite.tint = 0x1a2a4a;
-          sprite.alpha = 0.35;
+          // Water with shimmer
+          sprite.tint = 0x1a3a6a;
+          sprite.alpha = 0.4 + 0.08 * Math.sin(time * 1.5 + x * 0.3 + y * 0.5);
+          sprite.scale.set(1.4);
         } else if (t === 3) {
           // Mountain
           sprite.tint = 0x3a3530;
