@@ -12,6 +12,7 @@
     "pixi.js": "^8.6.6"
   },
   "devDependencies": {
+    "puppeteer": "^24.37.5",
     "typescript": "^5.7.3",
     "vite": "^6.1.0"
   }
