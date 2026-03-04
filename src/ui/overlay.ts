@@ -25,7 +25,7 @@ export class UIOverlay {
   private fadeTimeout: ReturnType<typeof setTimeout> | null = null;
   private callbacks: UICallbacks;
   private settingsCollapsed: boolean = false;
-  private helpVisible: boolean = true;
+  private helpVisible: boolean = false;
 
   constructor(container: HTMLElement, callbacks: UICallbacks) {
     this.callbacks = callbacks;
@@ -69,10 +69,10 @@ export class UIOverlay {
       <div><span class="key">3</span> Speed 2x</div>
       <div><span class="key">4</span> Speed 4x</div>
       <div><span class="key">T</span> Toggle trails</div>
+      <div><span class="key">G</span> Toggle graph</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
     `;
-    this.helpEl.classList.add('visible');
     this.overlay.appendChild(this.helpEl);
 
     // Settings panel
@@ -116,7 +116,7 @@ export class UIOverlay {
         </div>
         <div class="setting-toggle-row">
           <label>Help</label>
-          <input type="checkbox" checked data-toggle="help" />
+          <input type="checkbox" data-toggle="help" />
         </div>
         <div class="setting-toggle-row">
           <label>World Wrap</label>
@@ -241,6 +241,10 @@ export class UIOverlay {
         case 'KeyT':
           cb.onConfigChange('trails', true); // toggled by main
           this.syncToggle('trails', !this.getToggleState('trails'));
+          break;
+        case 'KeyG':
+          cb.onConfigChange('graph', true);
+          this.syncToggle('graph', !this.getToggleState('graph'));
           break;
       }
 

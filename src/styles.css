@@ -228,3 +228,11 @@ canvas {
   font-size: 10px;
   color: #334455;
 }
+
+#population-graph {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 60px;
+  pointer-events: none;
+}

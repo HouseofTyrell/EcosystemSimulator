@@ -3,6 +3,7 @@
 import { Simulation } from './sim/simulation';
 import { Renderer } from './render/renderer';
 import { UIOverlay } from './ui/overlay';
+import { PopulationGraph } from './ui/graph';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -10,6 +11,7 @@ class App {
   private sim: Simulation;
   private renderer: Renderer;
   private ui!: UIOverlay;
+  private graph!: PopulationGraph;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = true;
@@ -58,11 +60,14 @@ class App {
     this.ui.updateSpeed(this.speed);
     this.ui.updateSeed(this.seed);
 
+    this.graph = new PopulationGraph(container);
+
     // Resize handling
     window.addEventListener('resize', () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
       this.renderer.resize(w, h);
+      this.graph.resize();
       this.sim.state.config.worldWidth = w;
       this.sim.state.config.worldHeight = h;
     });
@@ -97,6 +102,7 @@ class App {
     // Render every frame
     this.renderer.render(this.sim.state, this.sim.state.time);
     this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
+    this.graph.update(this.sim.state.stats, this.sim.state.time);
   };
 
   private reset(seed: number): void {
@@ -106,10 +112,16 @@ class App {
     this.sim.reset(seed);
     this.accumulator = 0;
     this.ui.updateSeed(seed);
+    this.graph.reset();
     this.renderer.setTrails(this.trails); // Clear trails on reset
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {
+    if (key === 'graph') {
+      this.graph.toggle();
+      return;
+    }
+
     if (key === 'trails') {
       this.trails = !this.trails;
       this.renderer.setTrails(this.trails);
