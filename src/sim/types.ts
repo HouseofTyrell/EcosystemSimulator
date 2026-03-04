@@ -118,6 +118,11 @@ export interface SimConfig {
 
   // World wrap
   wrapWorld: boolean;
+
+  // Population caps (adaptive)
+  maxHerbivores: number;
+  maxPredators: number;
+  maxScavengers: number;
 }
 
 export interface SimState {
@@ -217,4 +222,8 @@ export const DEFAULT_CONFIG: SimConfig = {
   spatialCellSize: 60,
 
   wrapWorld: false,
+
+  maxHerbivores: 60,
+  maxPredators: 20,
+  maxScavengers: 15,
 };

@@ -38,6 +38,7 @@ class App {
     this.sim.state.config.worldWidth = width;
     this.sim.state.config.worldHeight = height;
     this.sim.reset(this.seed);
+    this.updatePopCaps();
 
     await this.renderer.init({
       container,
@@ -87,6 +88,7 @@ class App {
       this.graph.resize();
       this.sim.state.config.worldWidth = w;
       this.sim.state.config.worldHeight = h;
+      this.updatePopCaps();
     });
 
     // Start loop
@@ -129,12 +131,22 @@ class App {
     this.sim.state.config.worldWidth = window.innerWidth;
     this.sim.state.config.worldHeight = window.innerHeight;
     this.sim.reset(seed);
+    this.updatePopCaps();
     this.accumulator = 0;
     this.ui.updateSeed(seed);
     this.graph.reset();
     this.inspector.clearAll();
     this.feed.reset();
     this.renderer.setTrails(this.trails); // Clear trails on reset
+  }
+
+  private updatePopCaps(): void {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const scale = (w * h) / (1920 * 1080);
+    this.sim.state.config.maxHerbivores = Math.floor(60 * scale);
+    this.sim.state.config.maxPredators = Math.floor(20 * scale);
+    this.sim.state.config.maxScavengers = Math.floor(15 * scale);
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {

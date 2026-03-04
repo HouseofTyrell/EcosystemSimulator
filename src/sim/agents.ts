@@ -533,7 +533,8 @@ export function updateHerbivores(
     // Reproduction
     if (
       h.energy > config.herbivoreReproductionEnergy &&
-      h.reproductionCooldown <= 0
+      h.reproductionCooldown <= 0 &&
+      state.herbivores.length + newborns.length < config.maxHerbivores
     ) {
       h.energy -= config.herbivoreReproductionCost;
       h.reproductionCooldown = config.herbivoreReproductionCooldownTime;
@@ -650,7 +651,8 @@ export function updatePredators(
     // Reproduction
     if (
       p.energy > config.predatorReproductionEnergy &&
-      p.reproductionCooldown <= 0
+      p.reproductionCooldown <= 0 &&
+      state.predators.length + newborns.length < config.maxPredators
     ) {
       p.energy -= config.predatorReproductionCost;
       p.reproductionCooldown = config.predatorReproductionCooldownTime;
@@ -761,7 +763,7 @@ export function updateScavengers(
       continue;
     }
 
-    if (s.energy > config.scavengerReproductionEnergy && s.reproductionCooldown <= 0) {
+    if (s.energy > config.scavengerReproductionEnergy && s.reproductionCooldown <= 0 && state.scavengers.length + newborns.length < config.maxScavengers) {
       s.energy -= config.scavengerReproductionCost;
       s.reproductionCooldown = config.scavengerReproductionCooldownTime;
       const offsetX = rng.range(-15, 15);
