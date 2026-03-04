@@ -23,10 +23,10 @@ interface ActiveParticle {
 
 // Seasonal background colors
 const SEASON_COLORS = [
-  { r: 0x10, g: 0x22, b: 0x12 }, // Spring: green tint
-  { r: 0x22, g: 0x1e, b: 0x0e }, // Summer: warm amber
-  { r: 0x22, g: 0x12, b: 0x0c }, // Autumn: rust
-  { r: 0x0c, g: 0x10, b: 0x24 }, // Winter: deep blue
+  { r: 0x18, g: 0x33, b: 0x18 }, // Spring: lush green
+  { r: 0x33, g: 0x2d, b: 0x12 }, // Summer: warm amber
+  { r: 0x33, g: 0x1a, b: 0x10 }, // Autumn: deep rust
+  { r: 0x10, g: 0x18, b: 0x36 }, // Winter: deep blue
 ];
 
 function lerpColor(season: number): number {
@@ -478,7 +478,7 @@ export class Renderer {
 
       sprite.x = h.pos.x * scaleX;
       sprite.y = h.pos.y * scaleY;
-      const lineageTintH = hueShiftByLineage(0x6dbb7a, h.lineageId, 25);
+      const lineageTintH = hueShiftByLineage(0x5dd880, h.lineageId, 25);
       sprite.tint = lineageTintH;
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
@@ -534,7 +534,7 @@ export class Renderer {
 
       sprite.x = p.pos.x * scaleX;
       sprite.y = p.pos.y * scaleY;
-      const lineageTintP = hueShiftByLineage(0xcc8855, p.lineageId, 25);
+      const lineageTintP = hueShiftByLineage(0xe87744, p.lineageId, 25);
       sprite.tint = lineageTintP;
       sprite.rotation = Math.atan2(p.vel.y, p.vel.x);
 
@@ -591,7 +591,7 @@ export class Renderer {
       const sprite = this.scavPool.acquire();
       sprite.x = s.pos.x * scaleX;
       sprite.y = s.pos.y * scaleY;
-      const lineageTintS = hueShiftByLineage(0xb89955, s.lineageId, 25);
+      const lineageTintS = hueShiftByLineage(0xd4a840, s.lineageId, 25);
       sprite.tint = lineageTintS;
       sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
       const life = getLifeVisuals(s.age, s.maxAge);
