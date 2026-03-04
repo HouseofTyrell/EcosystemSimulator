@@ -1,7 +1,7 @@
 // PixiJS v8 renderer using pooled Sprites for efficient ecosystem rendering
 // Replaces per-frame Graphics redraws with sprite acquire/release pattern
 
-import { Application, Graphics, Container, Sprite } from 'pixi.js';
+import { Application, Graphics, Container, Sprite, BlurFilter } from 'pixi.js';
 import type { SimState } from '../sim/types';
 import { SpritePool } from './sprite-pool';
 import { generateTextures, type GeneratedTextures } from './textures';
@@ -23,10 +23,10 @@ interface ActiveParticle {
 
 // Seasonal background colors
 const SEASON_COLORS = [
-  { r: 0x0a, g: 0x0f, b: 0x0a }, // Spring: green tint
-  { r: 0x0f, g: 0x0f, b: 0x0a }, // Summer: warm
-  { r: 0x0f, g: 0x0a, b: 0x0a }, // Autumn: red tint
-  { r: 0x0a, g: 0x0a, b: 0x0f }, // Winter: cool blue
+  { r: 0x10, g: 0x22, b: 0x12 }, // Spring: green tint
+  { r: 0x22, g: 0x1e, b: 0x0e }, // Summer: warm amber
+  { r: 0x22, g: 0x12, b: 0x0c }, // Autumn: rust
+  { r: 0x0c, g: 0x10, b: 0x24 }, // Winter: deep blue
 ];
 
 function lerpColor(season: number): number {
@@ -61,6 +61,62 @@ function getLifeVisuals(age: number, maxAge: number): { scaleMul: number; tintMi
   return { scaleMul: 0.9, tintMix: elderProgress * 0.4, glowAlphaMul: 1.0 - elderProgress * 0.5 };
 }
 
+function getNightAlpha(dayPhase: number): number {
+  let nightIntensity: number;
+  if (dayPhase < 0.2) {
+    nightIntensity = 1 - dayPhase / 0.2;
+  } else if (dayPhase < 0.55) {
+    nightIntensity = 0;
+  } else if (dayPhase < 0.75) {
+    nightIntensity = (dayPhase - 0.55) / 0.2;
+  } else {
+    nightIntensity = 1;
+  }
+  const t = nightIntensity;
+  return t * t * (3 - 2 * t) * 0.4;
+}
+
+function hueShiftByLineage(baseTint: number, lineageId: number, range: number): number {
+  const hash = ((lineageId * 2654435761) >>> 0) / 0xffffffff;
+  const shift = (hash - 0.5) * 2 * range;
+
+  const r = ((baseTint >> 16) & 0xff) / 255;
+  const g = ((baseTint >> 8) & 0xff) / 255;
+  const b = (baseTint & 0xff) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+
+  if (max === min) return baseTint;
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+
+  h = ((h + shift / 360) % 1 + 1) % 1;
+
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const nr = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+  const ng = Math.round(hue2rgb(p, q, h) * 255);
+  const nb = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+
+  return (nr << 16) | (ng << 8) | nb;
+}
+
 function mixTintGrey(tint: number, mix: number): number {
   const r = (tint >> 16) & 0xff;
   const g = (tint >> 8) & 0xff;
@@ -79,12 +135,15 @@ export class Renderer {
   private backgroundLayer: Graphics;
   private plantContainer: Container;
   private particleContainer: Container;
+  private shadowContainer: Container;
   private glowContainer: Container;
   private herbivoreContainer: Container;
   private scavengerContainer: Container;
   private predatorContainer: Container;
   private trailLayer: Graphics;
   private fadeOverlay: Graphics;
+  private nightOverlay: Graphics;
+  private weatherLayer: Graphics;
 
   // Sprite pools
   private plantPool!: SpritePool;
@@ -93,6 +152,7 @@ export class Renderer {
   private predPool!: SpritePool;
   private particlePool!: SpritePool;
   private glowPool!: SpritePool;
+  private shadowPool!: SpritePool;
 
   // Textures
   private textures!: GeneratedTextures;
@@ -107,18 +167,23 @@ export class Renderer {
   private ready: boolean = false;
   private worldW: number;
   private worldH: number;
+  private dayNightEnabled: boolean = true;
+  private weatherEnabled: boolean = true;
 
   constructor() {
     this.app = new Application();
     this.backgroundLayer = new Graphics();
     this.plantContainer = new Container();
     this.particleContainer = new Container();
+    this.shadowContainer = new Container();
     this.glowContainer = new Container();
     this.herbivoreContainer = new Container();
     this.scavengerContainer = new Container();
     this.predatorContainer = new Container();
     this.trailLayer = new Graphics();
     this.fadeOverlay = new Graphics();
+    this.nightOverlay = new Graphics();
+    this.weatherLayer = new Graphics();
     this.trails = false;
     this.worldW = 0;
     this.worldH = 0;
@@ -148,10 +213,13 @@ export class Renderer {
     this.app.stage.addChild(this.fadeOverlay);
     this.app.stage.addChild(this.plantContainer);
     this.app.stage.addChild(this.particleContainer);
+    this.app.stage.addChild(this.shadowContainer);
     this.app.stage.addChild(this.glowContainer);
     this.app.stage.addChild(this.herbivoreContainer);
     this.app.stage.addChild(this.scavengerContainer);
     this.app.stage.addChild(this.predatorContainer);
+    this.app.stage.addChild(this.weatherLayer);
+    this.app.stage.addChild(this.nightOverlay);
 
     // Create sprite pools
     this.plantPool = new SpritePool(this.textures.plant, this.plantContainer);
@@ -160,6 +228,12 @@ export class Renderer {
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
     this.particlePool = new SpritePool(this.textures.particle, this.particleContainer);
     this.glowPool = new SpritePool(this.textures.glow, this.glowContainer);
+    this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
+
+    // Bloom effect on glows
+    this.glowContainer.filters = [new BlurFilter({ strength: 5, quality: 2 })];
+    this.glowContainer.blendMode = 'add';
+    this.particleContainer.blendMode = 'add';
 
     this.ready = true;
   }
@@ -176,12 +250,24 @@ export class Renderer {
     this.trailFadeAlpha = alpha;
   }
 
+  setDayNight(enabled: boolean): void {
+    this.dayNightEnabled = enabled;
+    if (!enabled) this.nightOverlay.clear();
+  }
+
+  setWeather(enabled: boolean): void {
+    this.weatherEnabled = enabled;
+    if (!enabled) this.weatherLayer.clear();
+  }
+
   render(state: SimState, time: number, selectedIds?: number[]): void {
     if (!this.ready) return;
 
     const config = state.config;
     const scaleX = this.worldW / config.worldWidth;
     const scaleY = this.worldH / config.worldHeight;
+    const nightAlpha = this.dayNightEnabled ? getNightAlpha(state.dayPhase) : 0;
+    const nightGlowBoost = 1 + nightAlpha * 1.5; // Glows 60% brighter at full night
 
     // === 1. Seasonal background ===
     this.backgroundLayer.clear();
@@ -204,6 +290,16 @@ export class Renderer {
     this.backgroundLayer
       .rect(0, 0, this.worldW, this.worldH)
       .fill({ color: finalBgColor });
+
+    // Dawn/dusk warm tint
+    const isDawn = state.dayPhase < 0.2;
+    const isDusk = state.dayPhase > 0.55 && state.dayPhase < 0.75;
+    if (this.dayNightEnabled && (isDawn || isDusk)) {
+      const progress = isDawn ? (1 - state.dayPhase / 0.2) : ((state.dayPhase - 0.55) / 0.2);
+      this.backgroundLayer
+        .rect(0, 0, this.worldW, this.worldH)
+        .fill({ color: isDawn ? 0xdd8844 : 0xcc5522, alpha: progress * 0.08 });
+    }
 
     if (!state.config.wrapWorld) {
       this.backgroundLayer
@@ -252,54 +348,115 @@ export class Renderer {
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
     this.glowPool.releaseAll();
+    this.shadowPool.releaseAll();
 
     const cols = config.plantGridCols;
     const rows = config.plantGridRows;
     const cellW = this.worldW / cols;
     const cellH = this.worldH / rows;
 
-    // === 4. Terrain ===
+    // === 4. Terrain — adaptive corner rounding (only round exterior corners) ===
+    const terrainR = Math.min(cellW, cellH) * 0.5;
+    const terrainPad = 2;
+
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const idx = y * cols + x;
         const t = state.terrain[idx];
-        if (t === 0) continue; // Skip land (no visual)
+        if (t === 0) continue; // Skip land
 
-        const sprite = this.plantPool.acquire();
-        sprite.x = x * cellW + cellW * 0.5;
-        sprite.y = y * cellH + cellH * 0.5;
-        sprite.scale.set(1.2);
+        // Check neighbors (same type = interior edge, different = exterior)
+        const left  = x > 0       ? state.terrain[idx - 1]    : 0;
+        const right = x < cols - 1 ? state.terrain[idx + 1]    : 0;
+        const above = y > 0       ? state.terrain[idx - cols]  : 0;
+        const below = y < rows - 1 ? state.terrain[idx + cols]  : 0;
+
+        // A corner is exterior if at least one adjacent edge neighbor differs
+        const rTL = !(left === t && above === t);
+        const rTR = !(right === t && above === t);
+        const rBL = !(left === t && below === t);
+        const rBR = !(right === t && below === t);
+
+        const px = x * cellW - terrainPad;
+        const py = y * cellH - terrainPad;
+        const pw = cellW + terrainPad * 2;
+        const ph = cellH + terrainPad * 2;
+        const cr = Math.min(terrainR, pw / 2, ph / 2);
+        const tl = rTL ? cr : 0;
+        const tr = rTR ? cr : 0;
+        const bl = rBL ? cr : 0;
+        const br = rBR ? cr : 0;
+
+        // Draw cell with per-corner rounding using arcTo
+        this.backgroundLayer.moveTo(px + tl, py);
+        this.backgroundLayer.lineTo(px + pw - tr, py);
+        if (tr > 0) this.backgroundLayer.arcTo(px + pw, py, px + pw, py + tr, tr);
+        else this.backgroundLayer.lineTo(px + pw, py);
+        this.backgroundLayer.lineTo(px + pw, py + ph - br);
+        if (br > 0) this.backgroundLayer.arcTo(px + pw, py + ph, px + pw - br, py + ph, br);
+        else this.backgroundLayer.lineTo(px + pw, py + ph);
+        this.backgroundLayer.lineTo(px + bl, py + ph);
+        if (bl > 0) this.backgroundLayer.arcTo(px, py + ph, px, py + ph - bl, bl);
+        else this.backgroundLayer.lineTo(px, py + ph);
+        this.backgroundLayer.lineTo(px, py + tl);
+        if (tl > 0) this.backgroundLayer.arcTo(px, py, px + tl, py, tl);
+        else this.backgroundLayer.lineTo(px, py);
+        this.backgroundLayer.closePath();
 
         if (t === 1) {
-          // Water with shimmer
-          sprite.tint = 0x1a3a6a;
-          sprite.alpha = 0.4 + 0.08 * Math.sin(time * 1.5 + x * 0.3 + y * 0.5);
-          sprite.scale.set(1.4);
+          const shimmer = 0.03 * Math.sin(time * 1.5 + x * 0.3 + y * 0.5);
+          this.backgroundLayer.fill({ color: 0x0f2844, alpha: 0.65 + shimmer });
         } else if (t === 3) {
-          // Mountain
-          sprite.tint = 0x3a3530;
-          sprite.alpha = 0.5;
-        } else {
-          // Fertile
-          sprite.tint = 0x1a3a1a;
-          sprite.alpha = 0.15;
+          this.backgroundLayer.fill({ color: 0x2a2520, alpha: 0.7 });
+        } else if (t === 2) {
+          this.backgroundLayer.fill({ color: 0x0a1a08, alpha: 0.35 });
         }
       }
     }
 
-    // === 5. Plants ===
+    // Shore shimmer — subtle brighter fill on outermost water cells
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        const density = state.plantGrid[y * cols + x];
-        if (density < 0.05) continue;
+        const idx = y * cols + x;
+        if (state.terrain[idx] !== 1) continue;
+        const left  = x > 0       ? state.terrain[idx - 1]    : 0;
+        const right = x < cols - 1 ? state.terrain[idx + 1]    : 0;
+        const above = y > 0       ? state.terrain[idx - cols]  : 0;
+        const below = y < rows - 1 ? state.terrain[idx + cols]  : 0;
+        if (left === 1 && right === 1 && above === 1 && below === 1) continue;
+        // Lighter water tint on shore cells — no outline, just a brighter fill
+        const shoreShimmer = 0.06 + 0.03 * Math.sin(time * 2 + x + y);
+        this.backgroundLayer
+          .rect(x * cellW, y * cellH, cellW, cellH)
+          .fill({ color: 0x2255aa, alpha: shoreShimmer });
+      }
+    }
 
-        const sprite = this.plantPool.acquire();
-        sprite.x = x * cellW + cellW * 0.5;
-        sprite.y = y * cellH + cellH * 0.5;
-        sprite.tint = 0x2a6e3a;
-        sprite.alpha = Math.min(density / config.plantCarryingCapacity, 1) * 0.6;
-        const s = 0.5 + density * 0.8;
-        sprite.scale.set(s);
+    // === 5. Plants — clustered dots to break grid pattern ===
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const density = state.plantGrid[idx];
+        if (density < 0.15) continue; // Higher threshold: skip sparse cells
+
+        const norm = Math.min(density / config.plantCarryingCapacity, 1);
+        const dotCount = norm > 0.7 ? 3 : norm > 0.35 ? 2 : 1;
+
+        for (let d = 0; d < dotCount; d++) {
+          const sprite = this.plantPool.acquire();
+          // Each sub-dot has unique deterministic jitter
+          const seed1 = ((idx * 2654435761 + d * 40503) >>> 0) / 0xffffffff;
+          const seed2 = ((idx * 340573321 + d * 22291) >>> 0) / 0xffffffff;
+          const jx = (seed1 - 0.5) * cellW * 1.4;
+          const jy = (seed2 - 0.5) * cellH * 1.4;
+          sprite.x = x * cellW + cellW * 0.5 + jx;
+          sprite.y = y * cellH + cellH * 0.5 + jy;
+          // Vary green per dot for texture
+          const greenVar = 0x28 + Math.floor(seed1 * 0x18);
+          sprite.tint = (0x1a << 16) | (greenVar << 8) | 0x28;
+          sprite.alpha = norm * 0.45 + 0.08;
+          sprite.scale.set(0.35 + norm * 0.6);
+        }
       }
     }
 
@@ -321,40 +478,52 @@ export class Renderer {
 
       sprite.x = h.pos.x * scaleX;
       sprite.y = h.pos.y * scaleY;
-      sprite.tint = 0x55ddaa;
+      const lineageTintH = hueShiftByLineage(0x6dbb7a, h.lineageId, 25);
+      sprite.tint = lineageTintH;
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
       // Base scale from size trait with breathing animation
       const life = getLifeVisuals(h.age, h.maxAge);
-      if (life.tintMix > 0) sprite.tint = mixTintGrey(0x55ddaa, life.tintMix);
-      const baseScale = h.traits.size * scaleX * 0.12 * life.scaleMul;
-      const breathe = 1 + 0.06 * Math.sin(time * 3 + h.id * 0.7);
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintH, life.tintMix);
+      const baseScale = h.traits.size * scaleX * 0.28 * life.scaleMul;
+      const breathe = 1 + 0.04 * Math.sin(time * 3 + h.id * 0.7);
       sprite.scale.set(baseScale * breathe);
 
-      // Alpha from vision range
-      let alpha = 0.4 + Math.min(h.traits.visionRange / 150, 1) * 0.6;
-
-      // Low energy fade
-      if (h.energy < 25) {
-        alpha *= Math.max(0.35, h.energy / 25);
-      }
-
+      // Alpha — solid creatures from satellite view
+      let alpha = 0.8 + Math.min(h.traits.visionRange / 150, 1) * 0.2;
+      if (h.energy < 25) alpha *= Math.max(0.5, h.energy / 25);
       sprite.alpha = alpha;
+
+      // Ground shadow
+      const shadowH = this.shadowPool.acquire();
+      shadowH.x = sprite.x + 2;
+      shadowH.y = sprite.y + 2;
+      shadowH.rotation = sprite.rotation;
+      shadowH.scale.set(baseScale * 1.1);
+      shadowH.alpha = 0.3;
 
       const glowH = this.glowPool.acquire();
       glowH.x = sprite.x;
       glowH.y = sprite.y;
-      glowH.tint = 0x55ddaa;
-      glowH.alpha = (0.3 + 0.1 * Math.sin(time * 2 + h.id)) * life.glowAlphaMul;
-      glowH.scale.set(baseScale * 1.8);
+      glowH.tint = lineageTintH;
+      const lineageSizeH = state.lineageCounts?.get(h.lineageId) || 1;
+      const dominanceGlowH = lineageSizeH >= 10 ? 0.8 : lineageSizeH >= 5 ? 0.6 : 0.35;
+      glowH.alpha = Math.min(1, (dominanceGlowH + 0.1 * Math.sin(time * 2 + h.id)) * life.glowAlphaMul * nightGlowBoost);
+      glowH.scale.set(baseScale * 2.0);
 
       if (selectedIds && selectedIds.includes(h.id)) {
         const ring = this.glowPool.acquire();
         ring.x = sprite.x;
         ring.y = sprite.y;
-        ring.tint = 0x55ddaa;
-        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
-        ring.scale.set(baseScale * 2.5);
+        ring.tint = 0xffffff;
+        ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 5);
+        const ring2 = this.glowPool.acquire();
+        ring2.x = sprite.x;
+        ring2.y = sprite.y;
+        ring2.tint = lineageTintH;
+        ring2.alpha = 0.9;
+        ring2.scale.set(baseScale * 3.5);
       }
     }
 
@@ -365,42 +534,54 @@ export class Renderer {
 
       sprite.x = p.pos.x * scaleX;
       sprite.y = p.pos.y * scaleY;
-      sprite.tint = 0xee6655;
+      const lineageTintP = hueShiftByLineage(0xcc8855, p.lineageId, 25);
+      sprite.tint = lineageTintP;
       sprite.rotation = Math.atan2(p.vel.y, p.vel.x);
 
       // Base scale from size trait with prowl animation
       const life = getLifeVisuals(p.age, p.maxAge);
-      if (life.tintMix > 0) sprite.tint = mixTintGrey(0xee6655, life.tintMix);
-      const baseScale = p.traits.size * scaleX * 0.12 * life.scaleMul;
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintP, life.tintMix);
+      const baseScale = p.traits.size * scaleX * 0.28 * life.scaleMul;
       const prowlPhase = Math.sin(time * 4 + p.id * 0.5);
-      const sx = baseScale * (1 + 0.08 * prowlPhase);
-      const sy = baseScale * (1 - 0.04 * prowlPhase);
+      const sx = baseScale * (1 + 0.06 * prowlPhase);
+      const sy = baseScale * (1 - 0.03 * prowlPhase);
       sprite.scale.set(sx, sy);
 
-      // Alpha from vision range
-      let alpha = 0.4 + Math.min(p.traits.visionRange / 200, 1) * 0.6;
-
-      // Low energy fade
-      if (p.energy < 25) {
-        alpha *= Math.max(0.35, p.energy / 25);
-      }
-
+      // Alpha — solid creatures from satellite view
+      let alpha = 0.85 + Math.min(p.traits.visionRange / 200, 1) * 0.15;
+      if (p.energy < 25) alpha *= Math.max(0.5, p.energy / 25);
       sprite.alpha = alpha;
+
+      // Ground shadow
+      const shadowP = this.shadowPool.acquire();
+      shadowP.x = sprite.x + 2;
+      shadowP.y = sprite.y + 2;
+      shadowP.rotation = sprite.rotation;
+      shadowP.scale.set(baseScale * 1.1);
+      shadowP.alpha = 0.3;
 
       const glowP = this.glowPool.acquire();
       glowP.x = sprite.x;
       glowP.y = sprite.y;
-      glowP.tint = 0xee6655;
-      glowP.alpha = (0.3 + 0.1 * Math.sin(time * 2 + p.id)) * life.glowAlphaMul;
-      glowP.scale.set(baseScale * 1.8);
+      glowP.tint = lineageTintP;
+      const lineageSizeP = state.lineageCounts?.get(p.lineageId) || 1;
+      const dominanceGlowP = lineageSizeP >= 10 ? 0.8 : lineageSizeP >= 5 ? 0.6 : 0.35;
+      glowP.alpha = Math.min(1, (dominanceGlowP + 0.1 * Math.sin(time * 2 + p.id)) * life.glowAlphaMul * nightGlowBoost);
+      glowP.scale.set(baseScale * 2.0);
 
       if (selectedIds && selectedIds.includes(p.id)) {
         const ring = this.glowPool.acquire();
         ring.x = sprite.x;
         ring.y = sprite.y;
-        ring.tint = 0xee6655;
-        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
-        ring.scale.set(baseScale * 2.5);
+        ring.tint = 0xffffff;
+        ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 5);
+        const ring2 = this.glowPool.acquire();
+        ring2.x = sprite.x;
+        ring2.y = sprite.y;
+        ring2.tint = lineageTintP;
+        ring2.alpha = 0.9;
+        ring2.scale.set(baseScale * 3.5);
       }
     }
 
@@ -410,31 +591,48 @@ export class Renderer {
       const sprite = this.scavPool.acquire();
       sprite.x = s.pos.x * scaleX;
       sprite.y = s.pos.y * scaleY;
-      sprite.tint = 0xccaa44;
+      const lineageTintS = hueShiftByLineage(0xb89955, s.lineageId, 25);
+      sprite.tint = lineageTintS;
       sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
       const life = getLifeVisuals(s.age, s.maxAge);
-      if (life.tintMix > 0) sprite.tint = mixTintGrey(0xccaa44, life.tintMix);
-      const baseScale = s.traits.size * scaleX * 0.12 * life.scaleMul;
-      const breathe = 1 + 0.05 * Math.sin(time * 2.5 + s.id * 0.9);
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintS, life.tintMix);
+      const baseScale = s.traits.size * scaleX * 0.28 * life.scaleMul;
+      const breathe = 1 + 0.04 * Math.sin(time * 2.5 + s.id * 0.9);
       sprite.scale.set(baseScale * breathe);
-      let alpha = 0.4 + Math.min(s.traits.visionRange / 150, 1) * 0.6;
-      if (s.energy < 25) alpha *= Math.max(0.35, s.energy / 25);
+      let alpha = 0.8 + Math.min(s.traits.visionRange / 150, 1) * 0.2;
+      if (s.energy < 25) alpha *= Math.max(0.5, s.energy / 25);
       sprite.alpha = alpha;
+
+      // Ground shadow
+      const shadowS = this.shadowPool.acquire();
+      shadowS.x = sprite.x + 2;
+      shadowS.y = sprite.y + 2;
+      shadowS.rotation = sprite.rotation;
+      shadowS.scale.set(baseScale * 1.0);
+      shadowS.alpha = 0.3;
 
       const glowS = this.glowPool.acquire();
       glowS.x = sprite.x;
       glowS.y = sprite.y;
-      glowS.tint = 0xccaa44;
-      glowS.alpha = (0.3 + 0.1 * Math.sin(time * 2 + s.id)) * life.glowAlphaMul;
-      glowS.scale.set(baseScale * 1.8);
+      glowS.tint = lineageTintS;
+      const lineageSizeS = state.lineageCounts?.get(s.lineageId) || 1;
+      const dominanceGlowS = lineageSizeS >= 10 ? 0.8 : lineageSizeS >= 5 ? 0.6 : 0.35;
+      glowS.alpha = Math.min(1, (dominanceGlowS + 0.1 * Math.sin(time * 2 + s.id)) * life.glowAlphaMul * nightGlowBoost);
+      glowS.scale.set(baseScale * 2.0);
 
       if (selectedIds && selectedIds.includes(s.id)) {
         const ring = this.glowPool.acquire();
         ring.x = sprite.x;
         ring.y = sprite.y;
-        ring.tint = 0xccaa44;
-        ring.alpha = 0.5 + 0.3 * Math.sin(time * 4);
-        ring.scale.set(baseScale * 2.5);
+        ring.tint = 0xffffff;
+        ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
+        ring.scale.set(baseScale * 5);
+        const ring2 = this.glowPool.acquire();
+        ring2.x = sprite.x;
+        ring2.y = sprite.y;
+        ring2.tint = lineageTintS;
+        ring2.alpha = 0.9;
+        ring2.scale.set(baseScale * 3.5);
       }
     }
 
@@ -445,41 +643,45 @@ export class Renderer {
       const ey = ev.y * scaleY;
 
       if (ev.type === 'death') {
-        // Spawn 4 particles spreading outward
-        for (let j = 0; j < 4; j++) {
-          const angle = (j / 4) * Math.PI * 2 + Math.random() * 0.5;
-          const speed = 30 + Math.random() * 40;
+        // Gentle drifting particles
+        for (let j = 0; j < 6; j++) {
+          const angle = (j / 6) * Math.PI * 2 + Math.random() * 0.5;
+          const speed = 15 + Math.random() * 20;
           const sprite = this.particlePool.acquire();
           sprite.x = ex;
           sprite.y = ey;
           sprite.tint = ev.creatureType === 'herbivore' ? 0x44cc77 : ev.creatureType === 'scavenger' ? 0xccaa44 : 0xee6655;
-          sprite.alpha = 1;
-          sprite.scale.set(0.8);
+          sprite.alpha = 0.9;
+          sprite.scale.set(1.2);
 
           this.particles.push({
             sprite,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 0.8,
-            maxLife: 0.8,
+            vy: Math.sin(angle) * speed - 5, // slight upward drift
+            life: 1.5,
+            maxLife: 1.5,
           });
         }
       } else if (ev.type === 'birth') {
-        // Spawn 1 white particle
-        const sprite = this.particlePool.acquire();
-        sprite.x = ex;
-        sprite.y = ey;
-        sprite.tint = 0xffffff;
-        sprite.alpha = 0.8;
-        sprite.scale.set(0.8);
+        // Gentle sparkle burst
+        const birthTint = ev.creatureType === 'herbivore' ? 0xaaffcc :
+                          ev.creatureType === 'predator' ? 0xffaa88 : 0xffeebb;
+        for (let j = 0; j < 3; j++) {
+          const sprite = this.particlePool.acquire();
+          sprite.x = ex;
+          sprite.y = ey;
+          sprite.tint = birthTint;
+          sprite.alpha = 0.9;
+          sprite.scale.set(1.5);
 
-        this.particles.push({
-          sprite,
-          vx: (Math.random() - 0.5) * 20,
-          vy: (Math.random() - 0.5) * 20,
-          life: 0.5,
-          maxLife: 0.5,
-        });
+          this.particles.push({
+            sprite,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10 - 8, // float upward
+            life: 1.2,
+            maxLife: 1.2,
+          });
+        }
       }
     }
 
@@ -501,6 +703,74 @@ export class Renderer {
       const t = part.life / part.maxLife;
       part.sprite.alpha = t;
       part.sprite.scale.set(t * 0.8);
+    }
+
+    // === Weather visuals ===
+    this.weatherLayer.clear();
+    if (this.weatherEnabled && state.weather.type !== 'clear' && state.weather.intensity > 0.01) {
+      const wi = state.weather.intensity;
+
+      if (state.weather.type === 'rain') {
+        const rainCount = Math.floor(wi * 200);
+        for (let i = 0; i < rainCount; i++) {
+          const rx = ((i * 3571 + Math.floor(time * 200)) % this.worldW);
+          const baseY = ((i * 7127 + Math.floor(time * 400)) % (this.worldH + 40)) - 20;
+          const len = 8 + (i % 6) * 2.5;
+          this.weatherLayer
+            .moveTo(rx, baseY)
+            .lineTo(rx - 1, baseY + len)
+            .stroke({ color: 0x5577bb, width: 1.5, alpha: wi * 0.4 });
+        }
+        this.weatherLayer
+          .rect(0, 0, this.worldW, this.worldH)
+          .fill({ color: 0x223355, alpha: wi * 0.1 });
+      }
+
+      if (state.weather.type === 'fog') {
+        this.weatherLayer
+          .rect(0, 0, this.worldW, this.worldH)
+          .fill({ color: 0xddddcc, alpha: wi * 0.22 });
+      }
+
+      if (state.weather.type === 'wind') {
+        const windAngle = state.weather.windAngle;
+        const lineCount = Math.floor(wi * 60);
+        const cos = Math.cos(windAngle);
+        const sin = Math.sin(windAngle);
+        for (let i = 0; i < lineCount; i++) {
+          const bx = ((i * 4793 + Math.floor(time * 100 * Math.abs(cos + 0.1))) % this.worldW);
+          const by = ((i * 6151 + Math.floor(time * 100 * Math.abs(sin + 0.1))) % this.worldH);
+          const len = 15 + (i % 10) * 3;
+          this.weatherLayer
+            .moveTo(bx, by)
+            .lineTo(bx + cos * len, by + sin * len)
+            .stroke({ color: 0x99aabb, width: 1, alpha: wi * 0.22 });
+        }
+      }
+    }
+
+    // === Night overlay ===
+    this.nightOverlay.clear();
+    if (this.dayNightEnabled) {
+      const nightAlpha = getNightAlpha(state.dayPhase);
+      if (nightAlpha > 0.01) {
+        this.nightOverlay
+          .rect(0, 0, this.worldW, this.worldH)
+          .fill({ color: 0x05050f, alpha: nightAlpha });
+
+        if (nightAlpha > 0.15) {
+          const starCount = Math.floor(nightAlpha * 120);
+          for (let i = 0; i < starCount; i++) {
+            const sx = ((i * 7919 + 1013) % this.worldW);
+            const sy = ((i * 6271 + 2017) % (this.worldH * 0.7)); // Stars in upper 70%
+            const twinkle = 0.4 + 0.6 * Math.abs(Math.sin(time * 1.2 + i * 2.3));
+            const size = (i % 5 === 0) ? 1.5 : 1;
+            this.nightOverlay
+              .circle(sx, sy, size)
+              .fill({ color: 0xeeeeff, alpha: nightAlpha * twinkle });
+          }
+        }
+      }
     }
   }
 
