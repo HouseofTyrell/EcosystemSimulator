@@ -9,6 +9,7 @@ import { EventFeed } from './ui/feed';
 import { Camera } from './camera';
 import { Tooltip } from './ui/tooltip';
 import { Minimap } from './ui/minimap';
+import { AudioManager } from './audio/audio-manager';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -22,6 +23,8 @@ class App {
   private camera!: Camera;
   private tooltip!: Tooltip;
   private minimap!: Minimap;
+  private audio: AudioManager = new AudioManager();
+  private lastFeedCount: number = 0;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = false;
@@ -86,6 +89,7 @@ class App {
     this.minimap.onClick((x, y) => this.camera.centerOn(x, y), this.sim.state.config);
 
     this.renderer.app.canvas.addEventListener('click', (e) => {
+      if (!this.audio.isEnabled) this.audio.init();
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
       const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
@@ -128,9 +132,10 @@ class App {
       this.camera.centerOn(worldX, worldY, 2);
     });
 
-    // Camera keyboard shortcuts
+    // Camera keyboard shortcuts + audio init on first interaction
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      if (!this.audio.isEnabled) this.audio.init();
       if (e.code === 'Digit0') {
         this.camera.resetView();
       } else if (e.code === 'KeyC') {
@@ -235,6 +240,25 @@ class App {
     this.inspector.update(this.sim.state, this.sim.state.time);
     this.feed.update(this.sim.state.feedEvents, this.sim.state.time);
     this.minimap.update(this.sim.state, this.camera.state);
+
+    // Audio: update ambient drone and rain
+    this.audio.updateAmbient(this.sim.state.season, this.sim.state.dayPhase);
+    const rainIntensity = this.sim.state.weather.type === 'rain' ? this.sim.state.weather.intensity : 0;
+    this.audio.updateRain(rainIntensity);
+
+    // Audio: play event stings for new feed events
+    const feedEvents = this.sim.state.feedEvents;
+    for (let i = this.lastFeedCount; i < feedEvents.length; i++) {
+      const text = feedEvents[i].text;
+      if (text.includes('extinct')) {
+        this.audio.playEvent('extinction');
+      } else if (text.includes('Disease') || text.includes('disease')) {
+        this.audio.playEvent('disease');
+      } else if (text.includes('reintroduced') || text.includes('reached')) {
+        this.audio.playEvent('birth');
+      }
+    }
+    this.lastFeedCount = feedEvents.length;
   };
 
   private reset(seed: number): void {
@@ -248,6 +272,7 @@ class App {
     this.graph.reset();
     this.inspector.clearAll();
     this.feed.reset();
+    this.lastFeedCount = 0;
     this.camera.resetView();
     this.renderer.setTrails(this.trails); // Clear trails on reset
   }
@@ -300,6 +325,12 @@ class App {
       this.sim.herbHash.wrap = wrap;
       this.sim.predHash.wrap = wrap;
       this.sim.scavHash.wrap = wrap;
+      return;
+    }
+
+    if (key === 'sound') {
+      if (!this.audio.isEnabled) this.audio.init();
+      else this.audio.toggle();
       return;
     }
 

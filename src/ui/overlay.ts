@@ -72,6 +72,7 @@ export class UIOverlay {
       <div><span class="key">G</span> Toggle graph</div>
       <div><span class="key">F</span> Toggle event feed</div>
       <div><span class="key">Esc</span> Clear inspector</div>
+      <div><span class="key">M</span> Toggle sound</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
     `;
@@ -141,6 +142,10 @@ export class UIOverlay {
         <div class="setting-toggle-row">
           <label>World Wrap</label>
           <input type="checkbox" data-toggle="wrapWorld" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Sound</label>
+          <input type="checkbox" data-toggle="sound" />
         </div>
         <div class="settings-divider"></div>
         <div class="settings-section-label">Simulation</div>
@@ -305,6 +310,10 @@ export class UIOverlay {
         case 'KeyF':
           cb.onConfigChange('feed', true);
           this.syncToggle('feed', !this.getToggleState('feed'));
+          break;
+        case 'KeyM':
+          cb.onConfigChange('sound', true);
+          this.syncToggle('sound', !this.getToggleState('sound'));
           break;
         case 'Escape':
           cb.onConfigChange('inspector', true);
