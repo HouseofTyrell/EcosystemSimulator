@@ -32,7 +32,8 @@ export function updatePlants(
   dt: number,
   seasonalMult: number,
   config: SimConfig,
-  terrain: Uint8Array
+  terrain: Uint8Array,
+  soilHealth?: Float32Array
 ): void {
   const K = config.plantCarryingCapacity;
   const r = config.plantGrowthRate * seasonalMult;
@@ -46,9 +47,21 @@ export function updatePlants(
       continue;
     }
 
-    // Fertile cells grow faster and have higher carrying capacity
-    const effectiveR = terrain[i] === TerrainType.Fertile ? r * 1.4 : r;
-    const effectiveK = terrain[i] === TerrainType.Fertile ? K * 1.5 : K;
+    const soil = soilHealth ? soilHealth[i] : 1;
+
+    // Degrade soil when overgrazed, recover when vegetation present
+    const K_eff = terrain[i] === TerrainType.Fertile ? K * 1.5 : K;
+    if (soilHealth) {
+      if (grid[i] < K_eff * 0.1) {
+        soilHealth[i] = Math.max(0.1, soilHealth[i] - 0.002 * dt);
+      } else {
+        soilHealth[i] = Math.min(1, soilHealth[i] + 0.001 * dt);
+      }
+    }
+
+    // Fertile cells grow faster; soil quality scales effective growth rate
+    const effectiveR = (terrain[i] === TerrainType.Fertile ? r * 1.4 : r) * soil;
+    const effectiveK = K_eff;
 
     const p = grid[i];
     // Logistic growth: dp/dt = r * p * (1 - p/K)

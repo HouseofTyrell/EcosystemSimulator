@@ -252,7 +252,7 @@ export class Simulation {
     // Update plants
     const eventMult = getEventPlantMultiplier(state);
     const weatherPlantMul = state.weather.type === 'rain' ? 1 + 0.5 * state.weather.intensity : 1;
-    updatePlants(state.plantGrid, dt, state.seasonalMultiplier * eventMult * weatherPlantMul, config, state.terrain);
+    updatePlants(state.plantGrid, dt, state.seasonalMultiplier * eventMult * weatherPlantMul, config, state.terrain, state.soilHealth);
 
     // Diffusion (periodic)
     this.diffusionAccum += dt;
