@@ -7,24 +7,30 @@ export interface GeneratedTextures {
   plant: Texture;
   particle: Texture;
   glow: Texture;
+  shadow: Texture;
 }
 
 export function generateTextures(app: Application): GeneratedTextures {
-  // Herbivore: soft rounded blob
+  // Herbivore: stocky oval body (deer/buffalo from above) — pointing right
   const herbG = new Graphics();
-  herbG.circle(0, 0, 6);
+  herbG.ellipse(0, 0, 7, 4.5);           // main body
+  herbG.fill({ color: 0xffffff });
+  herbG.ellipse(5.5, 0, 3, 2.5);         // head (smaller oval)
   herbG.fill({ color: 0xffffff });
   const herbivore = app.renderer.generateTexture({
     target: herbG,
     resolution: 2,
   });
 
-  // Predator: angular diamond shape pointing right (nose forward)
+  // Predator: sleek elongated body (wolf/cat from above) — pointing right
   const predG = new Graphics();
-  predG.moveTo(7, 0);    // nose (right)
-  predG.lineTo(0, -5);   // top-left
-  predG.lineTo(-4, 0);   // tail
-  predG.lineTo(0, 5);    // bottom-left
+  predG.ellipse(0, 0, 8, 3.5);           // long lean body
+  predG.fill({ color: 0xffffff });
+  predG.ellipse(7, 0, 3.5, 2);           // pointed head
+  predG.fill({ color: 0xffffff });
+  predG.moveTo(-7, -2);                  // tail
+  predG.lineTo(-11, -1);
+  predG.lineTo(-7, 0);
   predG.closePath();
   predG.fill({ color: 0xffffff });
   const predator = app.renderer.generateTexture({
@@ -32,12 +38,11 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
-  // Scavenger: small triangle
+  // Scavenger: compact rounded body (small fox/bird from above)
   const scavG = new Graphics();
-  scavG.moveTo(0, -5);
-  scavG.lineTo(4, 4);
-  scavG.lineTo(-4, 4);
-  scavG.closePath();
+  scavG.ellipse(0, 0, 5, 3.5);           // round compact body
+  scavG.fill({ color: 0xffffff });
+  scavG.ellipse(4, 0, 2.5, 2);           // small head
   scavG.fill({ color: 0xffffff });
   const scavenger = app.renderer.generateTexture({ target: scavG, resolution: 2 });
 
@@ -59,12 +64,33 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
-  // Glow: ring for creature highlight
+  // Glow: soft radial gradient blob for organic bioluminescence
   const glowG = new Graphics();
-  glowG.circle(0, 0, 10);
-  glowG.stroke({ color: 0xffffff, width: 1.5, alpha: 0.6 });
+  const glowRadius = 14;
+  const glowSteps = 8;
+  for (let i = glowSteps; i >= 0; i--) {
+    const t = i / glowSteps;
+    const r = glowRadius * t;
+    const a = (1 - t) * (1 - t);
+    glowG.circle(0, 0, Math.max(r, 0.5));
+    glowG.fill({ color: 0xffffff, alpha: a });
+  }
   const glow = app.renderer.generateTexture({ target: glowG, resolution: 2 });
   glowG.destroy();
+
+  // Shadow: soft dark oval for ground shadow beneath creatures
+  const shadowG = new Graphics();
+  const shadowSteps = 5;
+  const shadowRx = 8;
+  const shadowRy = 4;
+  for (let i = shadowSteps; i >= 0; i--) {
+    const t = i / shadowSteps;
+    const a = (1 - t) * (1 - t) * 0.5;
+    shadowG.ellipse(0, 0, shadowRx * t, shadowRy * t);
+    shadowG.fill({ color: 0x000000, alpha: a });
+  }
+  const shadow = app.renderer.generateTexture({ target: shadowG, resolution: 2 });
+  shadowG.destroy();
 
   // Cleanup temp graphics
   herbG.destroy();
@@ -73,5 +99,5 @@ export function generateTextures(app: Application): GeneratedTextures {
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, scavenger, plant, particle, glow };
+  return { herbivore, predator, scavenger, plant, particle, glow, shadow };
 }

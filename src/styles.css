@@ -261,13 +261,14 @@ canvas {
 /* Creature Inspector */
 #inspector {
   position: absolute;
-  top: 220px;
-  right: 16px;
+  top: 16px;
+  left: 16px;
   width: 200px;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 130px;
 }
 
 .inspector-card {
