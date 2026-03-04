@@ -92,9 +92,9 @@ export class Simulation {
 
   private createSpawnQueues(config: SimConfig): { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue } {
     return {
-      herb: { remaining: config.initialHerbivores, interval: 2, timer: 0, startDelay: 1 },
-      pred: { remaining: config.initialPredators, interval: 4, timer: 0, startDelay: 15 },
-      scav: { remaining: config.initialScavengers, interval: 3, timer: 0, startDelay: 10 },
+      herb: { remaining: config.initialHerbivores, interval: 3, timer: 0, startDelay: 3 },
+      pred: { remaining: config.initialPredators, interval: 5, timer: 0, startDelay: 25 },
+      scav: { remaining: config.initialScavengers, interval: 4, timer: 0, startDelay: 18 },
     };
   }
 

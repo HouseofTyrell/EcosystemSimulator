@@ -6,9 +6,9 @@ import { TerrainType } from './types';
 export function createPlantGrid(config: SimConfig): Float32Array {
   const size = config.plantGridCols * config.plantGridRows;
   const grid = new Float32Array(size);
-  // Start at ~10% capacity for a sparse beginning
+  // Start at ~3% capacity for a sparse beginning
   for (let i = 0; i < size; i++) {
-    grid[i] = config.plantCarryingCapacity * 0.1;
+    grid[i] = config.plantCarryingCapacity * 0.03;
   }
   return grid;
 }
