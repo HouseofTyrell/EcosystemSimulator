@@ -1,6 +1,7 @@
 // Draggable panel utility — adds drag-to-reposition with localStorage persistence
 
 const STORAGE_KEY = 'sim-panel-positions';
+const trackedPanels: HTMLElement[] = [];
 
 interface PanelPosition {
   left: number;
@@ -19,15 +20,51 @@ function savePositions(positions: Record<string, PanelPosition>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
 }
 
+function clampToViewport(panel: HTMLElement): void {
+  const rect = panel.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Only clamp panels that have been dragged (left is set as px)
+  if (!panel.style.left || panel.style.left === 'auto') return;
+
+  let left = rect.left;
+  let top = rect.top;
+  let changed = false;
+
+  // Ensure at least 40px of the panel is visible
+  if (left > vw - 40) { left = vw - 40; changed = true; }
+  if (top > vh - 40) { top = vh - 40; changed = true; }
+  if (left < -rect.width + 40) { left = 0; changed = true; }
+  if (top < 0) { top = 0; changed = true; }
+
+  if (changed) {
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+
+    if (panel.id) {
+      const positions = loadPositions();
+      positions[panel.id] = { left, top };
+      savePositions(positions);
+    }
+  }
+}
+
 export function makeDraggable(panel: HTMLElement, handle: HTMLElement): void {
   const id = panel.id;
   if (!id) return;
 
-  // Restore saved position
+  trackedPanels.push(panel);
+
+  // Restore saved position (with viewport validation)
   const saved = loadPositions()[id];
   if (saved) {
-    panel.style.left = saved.left + 'px';
-    panel.style.top = saved.top + 'px';
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.max(0, Math.min(saved.left, vw - 40));
+    const top = Math.max(0, Math.min(saved.top, vh - 40));
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
     panel.style.marginTop = '0';
@@ -79,6 +116,13 @@ export function makeDraggable(panel: HTMLElement, handle: HTMLElement): void {
     };
     savePositions(positions);
   });
+}
+
+/** Re-clamp all tracked panels to current viewport. Call on window resize. */
+export function clampAllPanels(): void {
+  for (const panel of trackedPanels) {
+    clampToViewport(panel);
+  }
 }
 
 export function resetPanelPositions(): void {

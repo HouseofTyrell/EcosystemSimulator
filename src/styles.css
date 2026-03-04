@@ -264,9 +264,11 @@ canvas {
 /* Creature Inspector */
 #inspector {
   position: absolute;
-  top: 320px;
+  top: min(320px, calc(100vh - 300px));
   left: 16px;
   width: 200px;
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -358,7 +360,9 @@ canvas {
   position: absolute;
   bottom: 100px;
   right: 16px;
-  width: 220px;
+  width: min(220px, calc(100vw - 260px));
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
   pointer-events: auto;
   font-size: 10px;
   background: rgba(5, 5, 10, 0.6);

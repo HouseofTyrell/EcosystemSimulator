@@ -10,6 +10,7 @@ import { Camera } from './camera';
 import { Tooltip } from './ui/tooltip';
 import { Minimap } from './ui/minimap';
 import { AudioManager } from './audio/audio-manager';
+import { clampAllPanels } from './ui/draggable';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -191,6 +192,7 @@ class App {
       this.sim.state.config.worldHeight = h;
       this.camera.resize(w, h);
       this.updatePopCaps();
+      clampAllPanels();
     });
 
     // Start loop
