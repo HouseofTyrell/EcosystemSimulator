@@ -142,8 +142,8 @@ export class UIOverlay {
         </div>
         <div class="setting-row">
           <label>Plant Growth</label>
-          <input type="range" min="5" max="100" value="30" data-key="plantGrowthRate" data-scale="0.01" />
-          <span class="val">0.30</span>
+          <input type="range" min="5" max="100" value="20" data-key="plantGrowthRate" data-scale="0.01" />
+          <span class="val">0.20</span>
         </div>
         <div class="setting-row">
           <label>Big Mutations</label>
@@ -154,18 +154,18 @@ export class UIOverlay {
         <div class="settings-section-label">Balance</div>
         <div class="setting-row">
           <label>Herb Repro Energy</label>
-          <input type="range" min="40" max="160" value="80" data-key="herbivoreReproductionEnergy" data-scale="1" />
-          <span class="val">80</span>
+          <input type="range" min="40" max="160" value="105" data-key="herbivoreReproductionEnergy" data-scale="1" />
+          <span class="val">105</span>
         </div>
         <div class="setting-row">
           <label>Pred Repro Energy</label>
-          <input type="range" min="50" max="200" value="100" data-key="predatorReproductionEnergy" data-scale="1" />
-          <span class="val">100</span>
+          <input type="range" min="50" max="200" value="130" data-key="predatorReproductionEnergy" data-scale="1" />
+          <span class="val">130</span>
         </div>
         <div class="setting-row">
           <label>Scav Repro Energy</label>
-          <input type="range" min="30" max="120" value="60" data-key="scavengerReproductionEnergy" data-scale="1" />
-          <span class="val">60</span>
+          <input type="range" min="30" max="120" value="80" data-key="scavengerReproductionEnergy" data-scale="1" />
+          <span class="val">80</span>
         </div>
         <div class="setting-row">
           <label>Pred Attack Energy</label>

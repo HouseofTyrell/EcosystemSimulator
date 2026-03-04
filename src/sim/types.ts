@@ -190,29 +190,29 @@ export const DEFAULT_CONFIG: SimConfig = {
 
   plantGridCols: 80,
   plantGridRows: 45,
-  plantGrowthRate: 0.3,
+  plantGrowthRate: 0.20,
   plantCarryingCapacity: 1.0,
   seasonalStrength: 0.4,
   seasonPeriod: 180, // 3 minutes for a full season cycle
 
   initialHerbivores: 12,
-  herbivoreReproductionEnergy: 80,
+  herbivoreReproductionEnergy: 105,
   herbivoreReproductionCost: 50,
-  herbivoreReproductionCooldownTime: 5,
+  herbivoreReproductionCooldownTime: 12,
   herbivoreEatRate: 0.4,
   herbivoreMaxAge: 60,
 
   initialPredators: 3,
-  predatorReproductionEnergy: 100,
+  predatorReproductionEnergy: 130,
   predatorReproductionCost: 60,
-  predatorReproductionCooldownTime: 8,
+  predatorReproductionCooldownTime: 15,
   predatorAttackEnergy: 40,
   predatorMaxAge: 50,
 
   initialScavengers: 5,
-  scavengerReproductionEnergy: 60,
+  scavengerReproductionEnergy: 80,
   scavengerReproductionCost: 35,
-  scavengerReproductionCooldownTime: 6,
+  scavengerReproductionCooldownTime: 10,
   scavengerMaxAge: 45,
 
   mutationRate: 0.1,
