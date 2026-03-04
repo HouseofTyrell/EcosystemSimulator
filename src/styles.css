@@ -9,7 +9,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #0a0a0f;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: 'Inter', 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif;
   color: #8899aa;
 }
 
@@ -45,21 +45,26 @@ canvas {
   left: 16px;
   font-size: 12px;
   line-height: 1.6;
-  color: #556677;
+  color: #778899;
+  background: rgba(5, 5, 10, 0.7);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(34, 51, 68, 0.5);
 }
 
 #stats .label {
-  color: #445566;
+  color: #667788;
 }
 
 #stats .value {
   color: #8899aa;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-#stats .herbivore { color: #44aa66; }
-#stats .predator { color: #cc5544; }
-#stats .plant { color: #448844; }
-#stats .season { color: #7788aa; }
+#stats .herbivore { color: #55ddaa; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+#stats .predator { color: #ee6655; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+#stats .plant { color: #55aa55; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+#stats .season { color: #99aabb; }
 
 /* Help overlay */
 #help {
@@ -202,7 +207,11 @@ canvas {
   bottom: 16px;
   left: 16px;
   font-size: 11px;
-  color: #445566;
+  color: #667788;
+  background: rgba(5, 5, 10, 0.6);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 /* Pause indicator */
@@ -226,7 +235,11 @@ canvas {
   bottom: 16px;
   right: 16px;
   font-size: 10px;
-  color: #334455;
+  color: #556677;
+  background: rgba(5, 5, 10, 0.6);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 #population-graph {
@@ -318,17 +331,43 @@ canvas {
   position: absolute;
   bottom: 70px;
   right: 16px;
-  width: 200px;
+  width: 220px;
   pointer-events: none;
   font-size: 10px;
+  background: rgba(5, 5, 10, 0.6);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(34, 51, 68, 0.4);
+}
+
+#event-feed:empty {
+  display: none;
 }
 
 .feed-entry {
-  line-height: 1.6;
+  line-height: 1.7;
   white-space: nowrap;
+  color: #8899aa;
 }
 
 .feed-time {
-  color: #445566;
+  color: #556677;
   margin-right: 6px;
 }
+
+/* Hover tooltip */
+#tooltip {
+  position: fixed;
+  background: rgba(10, 12, 18, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 200;
+  transition: transform 0.05s;
+  max-width: 160px;
+}
+#tooltip .tt-type { color: #8cf; font-weight: bold; }
+#tooltip .tt-behavior { color: #aaa; font-style: italic; }

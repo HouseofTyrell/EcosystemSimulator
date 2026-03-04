@@ -7,6 +7,7 @@ import { PopulationGraph } from './ui/graph';
 import { CreatureInspector } from './ui/inspector';
 import { EventFeed } from './ui/feed';
 import { Camera } from './camera';
+import { Tooltip } from './ui/tooltip';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -18,6 +19,7 @@ class App {
   private inspector!: CreatureInspector;
   private feed!: EventFeed;
   private camera!: Camera;
+  private tooltip!: Tooltip;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = false;
@@ -76,6 +78,8 @@ class App {
 
     this.feed = new EventFeed(container);
 
+    this.tooltip = new Tooltip(document.body);
+
     this.renderer.app.canvas.addEventListener('click', (e) => {
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
@@ -127,6 +131,41 @@ class App {
       } else if (e.code === 'KeyC') {
         this.camera.follow(this.inspector.pinnedIds[0] || null);
       }
+    });
+
+    // Hover tooltip
+    this.renderer.app.canvas.addEventListener('mousemove', (e) => {
+      const rect = this.renderer.app.canvas.getBoundingClientRect();
+      const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
+      const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
+
+      let bestDist = 20 * 20;
+      let best: any = null;
+      const check = (c: any) => {
+        const dx = c.pos.x - worldX, dy = c.pos.y - worldY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) { bestDist = d2; best = c; }
+      };
+      for (const c of this.sim.state.herbivores) check(c);
+      for (const c of this.sim.state.predators) check(c);
+      for (const c of this.sim.state.scavengers) check(c);
+
+      if (best) {
+        const label = best.type.charAt(0).toUpperCase() + best.type.slice(1);
+        this.tooltip.show(e.clientX, e.clientY,
+          `<span class="tt-type">${label} #${best.id}</span><br>` +
+          `Energy: ${best.energy.toFixed(0)} | Gen ${best.generation}<br>` +
+          `<span class="tt-behavior">${best.behavior || 'idle'}</span>`
+        );
+        this.renderer.app.canvas.style.cursor = 'pointer';
+      } else {
+        this.tooltip.hide();
+        this.renderer.app.canvas.style.cursor = 'default';
+      }
+    });
+
+    this.renderer.app.canvas.addEventListener('mouseleave', () => {
+      this.tooltip.hide();
     });
 
     // Resize handling
