@@ -795,7 +795,7 @@ export function updateHerbivores(
     // Disease spread and damage
     if (h.infected > 0) {
       h.infected -= dt;
-      h.energy -= 3 * dt; // Damage over time
+      h.energy -= 2 * dt; // Damage over time
       // Spread to nearby same-species
       const diseaseNearby: typeof state.herbivores[0][] = [];
       herbHash.query(h.pos, 30, diseaseNearby);
@@ -962,7 +962,7 @@ export function updatePredators(
     // Disease spread and damage
     if (p.infected > 0) {
       p.infected -= dt;
-      p.energy -= 3 * dt; // Damage over time
+      p.energy -= 2 * dt; // Damage over time
       // Spread to nearby same-species
       const diseaseNearbyP: typeof state.predators[0][] = [];
       predHash.query(p.pos, 30, diseaseNearbyP);
@@ -1115,7 +1115,7 @@ export function updateScavengers(
     // Disease spread and damage
     if (s.infected > 0) {
       s.infected -= dt;
-      s.energy -= 3 * dt; // Damage over time
+      s.energy -= 2 * dt; // Damage over time
       // Spread to nearby same-species
       const diseaseNearbyS: typeof state.scavengers[0][] = [];
       scavHash.query(s.pos, 30, diseaseNearbyS);
