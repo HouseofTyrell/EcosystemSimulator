@@ -3,6 +3,7 @@ import { Graphics, Texture, Application } from 'pixi.js';
 export interface GeneratedTextures {
   herbivore: Texture;
   predator: Texture;
+  scavenger: Texture;
   plant: Texture;
   particle: Texture;
 }
@@ -30,6 +31,15 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
+  // Scavenger: small triangle
+  const scavG = new Graphics();
+  scavG.moveTo(0, -5);
+  scavG.lineTo(4, 4);
+  scavG.lineTo(-4, 4);
+  scavG.closePath();
+  scavG.fill({ color: 0xffffff });
+  const scavenger = app.renderer.generateTexture({ target: scavG, resolution: 2 });
+
   // Plant: tiny soft dot
   const plantG = new Graphics();
   plantG.circle(0, 0, 3);
@@ -51,8 +61,9 @@ export function generateTextures(app: Application): GeneratedTextures {
   // Cleanup temp graphics
   herbG.destroy();
   predG.destroy();
+  scavG.destroy();
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, plant, particle };
+  return { herbivore, predator, scavenger, plant, particle };
 }

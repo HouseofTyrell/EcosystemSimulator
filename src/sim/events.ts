@@ -41,18 +41,25 @@ export function updateEvents(state: SimState, dt: number, rng: SeededRNG): void 
 function applyDisease(state: SimState, rng: SeededRNG): void {
   // Pick a random species
   const roll = rng.next();
-  if (roll < 0.5 && state.herbivores.length > 0) {
+  if (roll < 0.33 && state.herbivores.length > 0) {
     // Disease hits herbivores
     for (let i = 0; i < state.herbivores.length; i++) {
       if (rng.next() < 0.3) {
         state.herbivores[i].energy *= 0.6;
       }
     }
-  } else if (state.predators.length > 0) {
+  } else if (roll < 0.66 && state.predators.length > 0) {
     // Disease hits predators
     for (let i = 0; i < state.predators.length; i++) {
       if (rng.next() < 0.3) {
         state.predators[i].energy *= 0.6;
+      }
+    }
+  } else if (state.scavengers.length > 0) {
+    // Disease hits scavengers
+    for (let i = 0; i < state.scavengers.length; i++) {
+      if (rng.next() < 0.3) {
+        state.scavengers[i].energy *= 0.6;
       }
     }
   }

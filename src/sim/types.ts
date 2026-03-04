@@ -21,6 +21,13 @@ export interface PredatorTraits {
   size: number;
 }
 
+export interface ScavengerTraits {
+  speed: number;
+  visionRange: number;
+  metabolism: number;
+  size: number;
+}
+
 export interface Agent {
   id: number;
   pos: Vec2;
@@ -45,7 +52,12 @@ export interface Predator extends Agent {
   traits: PredatorTraits;
 }
 
-export type Creature = Herbivore | Predator;
+export interface Scavenger extends Agent {
+  type: 'scavenger';
+  traits: ScavengerTraits;
+}
+
+export type Creature = Herbivore | Predator | Scavenger;
 
 export const enum TerrainType {
   Land = 0,
@@ -82,6 +94,13 @@ export interface SimConfig {
   predatorAttackEnergy: number;
   predatorMaxAge: number;
 
+  // Scavenger defaults
+  initialScavengers: number;
+  scavengerReproductionEnergy: number;
+  scavengerReproductionCost: number;
+  scavengerReproductionCooldownTime: number;
+  scavengerMaxAge: number;
+
   // Evolution
   mutationRate: number;
   bigMutationEnabled: boolean;
@@ -100,6 +119,7 @@ export interface SimState {
   terrain: Uint8Array;
   herbivores: Herbivore[];
   predators: Predator[];
+  scavengers: Scavenger[];
   corpses: Corpse[];
   nextId: number;
   stats: SimStats;
@@ -118,13 +138,16 @@ export interface SimStats {
   avgPredatorSpeed: number;
   avgPredatorSize: number;
   avgPredatorVision: number;
+  scavengerCount: number;
+  avgScavengerSpeed: number;
+  avgScavengerSize: number;
   seasonName: string;
   activeEventName: string;
 }
 
 export interface SimEvent {
   type: 'birth' | 'death';
-  creatureType: 'herbivore' | 'predator';
+  creatureType: 'herbivore' | 'predator' | 'scavenger';
   x: number;
   y: number;
 }
@@ -133,7 +156,7 @@ export interface Corpse {
   x: number;
   y: number;
   energy: number;
-  creatureType: 'herbivore' | 'predator';
+  creatureType: 'herbivore' | 'predator' | 'scavenger';
   decayTimer: number;
   maxDecay: number;
 }
@@ -169,6 +192,12 @@ export const DEFAULT_CONFIG: SimConfig = {
   predatorReproductionCooldownTime: 8,
   predatorAttackEnergy: 40,
   predatorMaxAge: 50,
+
+  initialScavengers: 5,
+  scavengerReproductionEnergy: 60,
+  scavengerReproductionCost: 35,
+  scavengerReproductionCooldownTime: 6,
+  scavengerMaxAge: 45,
 
   mutationRate: 0.1,
   bigMutationEnabled: false,

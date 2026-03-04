@@ -3,8 +3,11 @@
 import type {
   Herbivore,
   Predator,
+  Scavenger,
   HerbivoreTraits,
   PredatorTraits,
+  ScavengerTraits,
+  Corpse,
   SimConfig,
   SimEvent,
   SimState,
@@ -89,6 +92,40 @@ export function createPredator(
   };
 }
 
+export function createScavenger(
+  id: number,
+  x: number,
+  y: number,
+  rng: SeededRNG,
+  config: SimConfig,
+  parentTraits?: ScavengerTraits
+): Scavenger {
+  const traits: ScavengerTraits = parentTraits
+    ? mutateScavengerTraits(parentTraits, rng, config)
+    : {
+        speed: rng.range(35, 70),
+        visionRange: rng.range(50, 120),
+        metabolism: rng.range(1, 3),
+        size: rng.range(1.5, 3.5),
+      };
+
+  const angle = rng.range(0, Math.PI * 2);
+  const spd = traits.speed * 0.3;
+
+  return {
+    type: 'scavenger',
+    id,
+    pos: { x, y },
+    vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
+    energy: 50,
+    age: 0,
+    maxAge: config.scavengerMaxAge + rng.range(-5, 5),
+    reproductionCooldown: config.scavengerReproductionCooldownTime,
+    alive: true,
+    traits,
+  };
+}
+
 // --- Mutation ---
 
 function mutateVal(val: number, rng: SeededRNG, config: SimConfig, min: number, max: number): number {
@@ -115,6 +152,15 @@ function mutatePredatorTraits(parent: PredatorTraits, rng: SeededRNG, config: Si
     attackCooldown: mutateVal(parent.attackCooldown, rng, config, 0.3, 5),
     metabolism: mutateVal(parent.metabolism, rng, config, 0.5, 8),
     size: mutateVal(parent.size, rng, config, 1.5, 10),
+  };
+}
+
+function mutateScavengerTraits(parent: ScavengerTraits, rng: SeededRNG, config: SimConfig): ScavengerTraits {
+  return {
+    speed: mutateVal(parent.speed, rng, config, 15, 120),
+    visionRange: mutateVal(parent.visionRange, rng, config, 20, 200),
+    metabolism: mutateVal(parent.metabolism, rng, config, 0.5, 6),
+    size: mutateVal(parent.size, rng, config, 1, 7),
   };
 }
 
@@ -304,6 +350,88 @@ export function steerPredator(
     if (getTerrainAt(state.terrain, cp.x, cp.y, state.config) === TerrainType.Water) {
       const dx = cp.x - p.pos.x;
       const dy = cp.y - p.pos.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      fx -= (dx / d) * 150;
+      fy -= (dy / d) * 150;
+    }
+  }
+
+  // 4) Wander noise
+  fx += rng.gaussian(0, 10);
+  fy += rng.gaussian(0, 10);
+
+  _steerResult.x = fx;
+  _steerResult.y = fy;
+  return _steerResult;
+}
+
+export function steerScavenger(
+  s: Scavenger,
+  state: SimState,
+  scavHash: SpatialHash<Scavenger>,
+  rng: SeededRNG
+): Vec2 {
+  let fx = 0, fy = 0;
+  const config = state.config;
+  const vision = s.traits.visionRange;
+  const hunger = 1 - Math.min(s.energy / 80, 1);
+
+  // 1) Attraction to nearest corpse
+  let closestCorpseDist = Infinity;
+  let closestCorpseDelta: Vec2 | null = null;
+  for (let i = 0; i < state.corpses.length; i++) {
+    const c = state.corpses[i];
+    let dx = c.x - s.pos.x;
+    let dy = c.y - s.pos.y;
+    const hw = config.worldWidth * 0.5;
+    const hh = config.worldHeight * 0.5;
+    if (dx > hw) dx -= config.worldWidth;
+    else if (dx < -hw) dx += config.worldWidth;
+    if (dy > hh) dy -= config.worldHeight;
+    else if (dy < -hh) dy += config.worldHeight;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < vision * vision && d2 < closestCorpseDist) {
+      closestCorpseDist = d2;
+      closestCorpseDelta = { x: dx, y: dy };
+    }
+  }
+  if (closestCorpseDelta) {
+    const d = Math.sqrt(closestCorpseDist);
+    if (d > 1) {
+      const strength = 70 * (0.3 + hunger * 0.7);
+      fx += (closestCorpseDelta.x / d) * strength;
+      fy += (closestCorpseDelta.y / d) * strength;
+    }
+  }
+
+  // 2) Separation from other scavengers
+  const scavBuf: Scavenger[] = [];
+  scavHash.query(s.pos, 30, scavBuf);
+  for (let i = 0; i < scavBuf.length; i++) {
+    const other = scavBuf[i];
+    if (other.id === s.id) continue;
+    const delta = scavHash.wrappedDelta(s.pos, other.pos);
+    const d2 = delta.x * delta.x + delta.y * delta.y;
+    if (d2 < 1) continue;
+    const d = Math.sqrt(d2);
+    fx -= (delta.x / d) * (15 / d);
+    fy -= (delta.y / d) * (15 / d);
+  }
+
+  // 3) Water avoidance (same as other creatures)
+  const spd = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
+  const ahead = 20;
+  const checkPoints = [
+    { x: s.pos.x + (s.vel.x / (spd || 1)) * ahead, y: s.pos.y + (s.vel.y / (spd || 1)) * ahead },
+    { x: s.pos.x + ahead, y: s.pos.y },
+    { x: s.pos.x - ahead, y: s.pos.y },
+    { x: s.pos.x, y: s.pos.y + ahead },
+    { x: s.pos.x, y: s.pos.y - ahead },
+  ];
+  for (const cp of checkPoints) {
+    if (getTerrainAt(state.terrain, cp.x, cp.y, config) === TerrainType.Water) {
+      const dx = cp.x - s.pos.x;
+      const dy = cp.y - s.pos.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       fx -= (dx / d) * 150;
       fy -= (dy / d) * 150;
@@ -511,6 +639,96 @@ export function updatePredators(
       child.energy = config.predatorReproductionCost * 0.6;
       events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
+    }
+  }
+
+  return newborns;
+}
+
+export function updateScavengers(
+  state: SimState,
+  dt: number,
+  scavHash: SpatialHash<Scavenger>,
+  rng: SeededRNG,
+  events: SimEvent[]
+): Scavenger[] {
+  const config = state.config;
+  const newborns: Scavenger[] = [];
+
+  for (let i = 0; i < state.scavengers.length; i++) {
+    const s = state.scavengers[i];
+    if (!s.alive) continue;
+
+    s.age += dt;
+    s.reproductionCooldown = Math.max(0, s.reproductionCooldown - dt);
+
+    // Energy cost
+    const speedCost = (Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y) / 60) * 0.4;
+    const sizeCost = s.traits.size * 0.1;
+    s.energy -= (s.traits.metabolism + speedCost + sizeCost) * dt;
+
+    // Eat corpses: check nearby corpses
+    const eatRange = s.traits.size * 3 + 10;
+    for (let j = 0; j < state.corpses.length; j++) {
+      const c = state.corpses[j];
+      let dx = c.x - s.pos.x;
+      let dy = c.y - s.pos.y;
+      const hw = config.worldWidth * 0.5;
+      const hh = config.worldHeight * 0.5;
+      if (dx > hw) dx -= config.worldWidth;
+      else if (dx < -hw) dx += config.worldWidth;
+      if (dy > hh) dy -= config.worldHeight;
+      else if (dy < -hh) dy += config.worldHeight;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < eatRange * eatRange && c.energy > 0) {
+        const eaten = Math.min(c.energy, 8 * dt);
+        c.energy -= eaten;
+        s.energy += eaten * 2;
+        break; // eat one corpse at a time
+      }
+    }
+
+    // Steering
+    const steer = steerScavenger(s, state, scavHash, rng);
+    const turnRate = 3;
+    s.vel.x += steer.x * turnRate * dt;
+    s.vel.y += steer.y * turnRate * dt;
+
+    const spd = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
+    const maxSpd = s.traits.speed;
+    if (spd > maxSpd) {
+      s.vel.x = (s.vel.x / spd) * maxSpd;
+      s.vel.y = (s.vel.y / spd) * maxSpd;
+    }
+    if (spd < 5) {
+      const angle = rng.range(0, Math.PI * 2);
+      s.vel.x = Math.cos(angle) * 10;
+      s.vel.y = Math.sin(angle) * 10;
+    }
+
+    s.pos.x = ((s.pos.x + s.vel.x * dt) % config.worldWidth + config.worldWidth) % config.worldWidth;
+    s.pos.y = ((s.pos.y + s.vel.y * dt) % config.worldHeight + config.worldHeight) % config.worldHeight;
+
+    if (s.energy <= 0 || s.age > s.maxAge) {
+      s.alive = false;
+      events.push({ type: 'death', creatureType: 'scavenger', x: s.pos.x, y: s.pos.y });
+      continue;
+    }
+
+    if (s.energy > config.scavengerReproductionEnergy && s.reproductionCooldown <= 0) {
+      s.energy -= config.scavengerReproductionCost;
+      s.reproductionCooldown = config.scavengerReproductionCooldownTime;
+      const offsetX = rng.range(-15, 15);
+      const offsetY = rng.range(-15, 15);
+      const child = createScavenger(
+        state.nextId++,
+        ((s.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth,
+        ((s.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight,
+        rng, config, s.traits
+      );
+      child.energy = config.scavengerReproductionCost * 0.6;
+      newborns.push(child);
+      events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
     }
   }
 

@@ -57,6 +57,7 @@ export class Renderer {
   private plantContainer: Container;
   private particleContainer: Container;
   private herbivoreContainer: Container;
+  private scavengerContainer: Container;
   private predatorContainer: Container;
   private trailLayer: Graphics;
   private fadeOverlay: Graphics;
@@ -64,6 +65,7 @@ export class Renderer {
   // Sprite pools
   private plantPool!: SpritePool;
   private herbPool!: SpritePool;
+  private scavPool!: SpritePool;
   private predPool!: SpritePool;
   private particlePool!: SpritePool;
 
@@ -85,6 +87,7 @@ export class Renderer {
     this.plantContainer = new Container();
     this.particleContainer = new Container();
     this.herbivoreContainer = new Container();
+    this.scavengerContainer = new Container();
     this.predatorContainer = new Container();
     this.trailLayer = new Graphics();
     this.fadeOverlay = new Graphics();
@@ -118,11 +121,13 @@ export class Renderer {
     this.app.stage.addChild(this.plantContainer);
     this.app.stage.addChild(this.particleContainer);
     this.app.stage.addChild(this.herbivoreContainer);
+    this.app.stage.addChild(this.scavengerContainer);
     this.app.stage.addChild(this.predatorContainer);
 
     // Create sprite pools
     this.plantPool = new SpritePool(this.textures.plant, this.plantContainer);
     this.herbPool = new SpritePool(this.textures.herbivore, this.herbivoreContainer);
+    this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
     this.particlePool = new SpritePool(this.textures.particle, this.particleContainer);
 
@@ -179,6 +184,12 @@ export class Renderer {
           .circle(p.pos.x * scaleX, p.pos.y * scaleY, 1)
           .fill({ color: 0xcc5544, alpha: 0.12 });
       }
+      for (let i = 0; i < state.scavengers.length; i++) {
+        const s = state.scavengers[i];
+        this.trailLayer
+          .circle(s.pos.x * scaleX, s.pos.y * scaleY, 1)
+          .fill({ color: 0xccaa44, alpha: 0.12 });
+      }
 
       this.fadeOverlay.clear();
       this.fadeOverlay
@@ -189,6 +200,7 @@ export class Renderer {
     // === 3. Release all pools ===
     this.plantPool.releaseAll();
     this.herbPool.releaseAll();
+    this.scavPool.releaseAll();
     this.predPool.releaseAll();
 
     const cols = config.plantGridCols;
@@ -301,7 +313,23 @@ export class Renderer {
       sprite.alpha = alpha;
     }
 
-    // === 8. Process events ===
+    // === 8. Scavengers ===
+    for (let i = 0; i < state.scavengers.length; i++) {
+      const s = state.scavengers[i];
+      const sprite = this.scavPool.acquire();
+      sprite.x = s.pos.x * scaleX;
+      sprite.y = s.pos.y * scaleY;
+      sprite.tint = 0xccaa44;
+      sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
+      const baseScale = s.traits.size * scaleX * 0.12;
+      const breathe = 1 + 0.05 * Math.sin(time * 2.5 + s.id * 0.9);
+      sprite.scale.set(baseScale * breathe);
+      let alpha = 0.4 + Math.min(s.traits.visionRange / 150, 1) * 0.6;
+      if (s.energy < 25) alpha *= Math.max(0.35, s.energy / 25);
+      sprite.alpha = alpha;
+    }
+
+    // === 9. Process events ===
     for (let i = 0; i < state.events.length; i++) {
       const ev = state.events[i];
       const ex = ev.x * scaleX;
@@ -315,7 +343,7 @@ export class Renderer {
           const sprite = this.particlePool.acquire();
           sprite.x = ex;
           sprite.y = ey;
-          sprite.tint = ev.creatureType === 'herbivore' ? 0x44cc77 : 0xee6655;
+          sprite.tint = ev.creatureType === 'herbivore' ? 0x44cc77 : ev.creatureType === 'scavenger' ? 0xccaa44 : 0xee6655;
           sprite.alpha = 1;
           sprite.scale.set(0.8);
 

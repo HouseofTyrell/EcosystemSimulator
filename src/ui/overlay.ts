@@ -237,6 +237,7 @@ export class UIOverlay {
       <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
       <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span></div>
       <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span></div>
+      <div><span class="label">Scavengers:</span> <span class="value" style="color: #ccaa44">${stats.scavengerCount}</span></div>
       <div style="margin-top: 6px;">
         <span class="label">Herb avg:</span>
         <span class="herbivore">spd ${stats.avgHerbivoreSpeed.toFixed(0)} size ${stats.avgHerbivoreSize.toFixed(1)} vis ${stats.avgHerbivoreVision.toFixed(0)}</span>
