@@ -43,6 +43,7 @@ export class Simulation {
       predators: [],
       nextId: 0,
       stats: this.emptyStats(),
+      events: [],
     };
 
     this.spawnInitialPopulation();
@@ -93,6 +94,7 @@ export class Simulation {
     const state = this.state;
     const config = state.config;
 
+    state.events.length = 0;
     state.time += dt;
     state.season = (state.time / config.seasonPeriod) % 1;
     state.seasonalMultiplier = getSeasonalMultiplier(state.time, config);
@@ -122,8 +124,8 @@ export class Simulation {
     }
 
     // Update agents
-    const newHerbs = updateHerbivores(state, dt, this.herbHash, this.predHash, this.rng);
-    const newPreds = updatePredators(state, dt, this.herbHash, this.predHash, this.rng);
+    const newHerbs = updateHerbivores(state, dt, this.herbHash, this.predHash, this.rng, state.events);
+    const newPreds = updatePredators(state, dt, this.herbHash, this.predHash, this.rng, state.events);
 
     // Remove dead, add newborns
     state.herbivores = state.herbivores.filter(h => h.alive);
@@ -223,6 +225,7 @@ export class Simulation {
       predators: [],
       nextId: 0,
       stats: this.emptyStats(),
+      events: [],
     };
     this.diffusionAccum = 0;
     this.spawnInitialPopulation();

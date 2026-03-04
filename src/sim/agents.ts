@@ -6,6 +6,7 @@ import type {
   HerbivoreTraits,
   PredatorTraits,
   SimConfig,
+  SimEvent,
   SimState,
   Vec2,
 } from './types';
@@ -240,7 +241,8 @@ export function updateHerbivores(
   dt: number,
   herbHash: SpatialHash<Herbivore>,
   predHash: SpatialHash<Predator>,
-  rng: SeededRNG
+  rng: SeededRNG,
+  events: SimEvent[]
 ): Herbivore[] {
   const config = state.config;
   const newborns: Herbivore[] = [];
@@ -297,6 +299,7 @@ export function updateHerbivores(
     // Death
     if (h.energy <= 0 || h.age > h.maxAge) {
       h.alive = false;
+      events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
       continue;
     }
 
@@ -319,6 +322,7 @@ export function updateHerbivores(
         h.traits
       );
       child.energy = config.herbivoreReproductionCost * 0.6;
+      events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
     }
   }
@@ -331,7 +335,8 @@ export function updatePredators(
   dt: number,
   herbHash: SpatialHash<Herbivore>,
   predHash: SpatialHash<Predator>,
-  rng: SeededRNG
+  rng: SeededRNG,
+  events: SimEvent[]
 ): Predator[] {
   const config = state.config;
   const newborns: Predator[] = [];
@@ -362,6 +367,7 @@ export function updatePredators(
         const d2 = delta.x * delta.x + delta.y * delta.y;
         if (d2 < attackRange * attackRange) {
           h.alive = false;
+          events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
           p.energy += config.predatorAttackEnergy;
           p.attackTimer = p.traits.attackCooldown;
           break;
@@ -395,6 +401,7 @@ export function updatePredators(
     // Death
     if (p.energy <= 0 || p.age > p.maxAge) {
       p.alive = false;
+      events.push({ type: 'death', creatureType: 'predator', x: p.pos.x, y: p.pos.y });
       continue;
     }
 
@@ -417,6 +424,7 @@ export function updatePredators(
         p.traits
       );
       child.energy = config.predatorReproductionCost * 0.6;
+      events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
     }
   }

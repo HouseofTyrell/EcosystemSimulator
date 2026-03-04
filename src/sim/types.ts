@@ -95,6 +95,7 @@ export interface SimState {
   predators: Predator[];
   nextId: number;
   stats: SimStats;
+  events: SimEvent[];
 }
 
 export interface SimStats {
@@ -108,6 +109,13 @@ export interface SimStats {
   avgPredatorSize: number;
   avgPredatorVision: number;
   seasonName: string;
+}
+
+export interface SimEvent {
+  type: 'birth' | 'death';
+  creatureType: 'herbivore' | 'predator';
+  x: number;
+  y: number;
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
