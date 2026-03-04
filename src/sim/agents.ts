@@ -392,23 +392,30 @@ export function steerPredator(
   const vision = p.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(p.energy / 120, 1);
 
-  // 1) Attraction to herbivores (scaled by hunger)
+  // 1) Attraction to herbivores (scored targeting, scaled by hunger)
   const herbBuf: Herbivore[] = [];
   herbHash.query(p.pos, vision, herbBuf);
-  let closestDist = Infinity;
-  let closestDelta: Vec2 | null = null;
+  let bestScore = -Infinity;
+  let bestDelta: Vec2 | null = null;
+  let bestDist = 0;
   for (let i = 0; i < herbBuf.length; i++) {
     const h = herbBuf[i];
     const delta = herbHash.wrappedDelta(p.pos, h.pos);
     const d2 = delta.x * delta.x + delta.y * delta.y;
-    if (d2 < closestDist) {
-      closestDist = d2;
-      closestDelta = { x: delta.x, y: delta.y };
+    const d = Math.sqrt(d2);
+    if (d < 1) continue;
+    // Score: prefer slow, small prey that's close
+    const speedAdvantage = (p.traits.speed - h.traits.speed * 0.8);
+    const sizeAdvantage = p.traits.size - h.traits.size;
+    const catchScore = (speedAdvantage + sizeAdvantage * 0.5) / (d + 10);
+    if (catchScore > bestScore) {
+      bestScore = catchScore;
+      bestDelta = { x: delta.x, y: delta.y };
+      bestDist = d;
     }
   }
-  if (closestDelta) {
-    const d = Math.sqrt(closestDist);
-    if (d > 1) {
+  if (bestDelta) {
+    if (bestDist > 1) {
       // Pack coordination: more predators = stronger attraction
       const nearbyPreds: Predator[] = [];
       predHash.query(p.pos, 60, nearbyPreds);
@@ -416,8 +423,8 @@ export function steerPredator(
       const packBonus = 1 + 0.25 * Math.min(packSize - 1, 3); // 1x solo, up to 1.75x in pack of 4+
 
       const strength = 80 * (0.3 + hunger * 0.7) * packBonus;
-      fx += (closestDelta.x / d) * strength;
-      fy += (closestDelta.y / d) * strength;
+      fx += (bestDelta.x / bestDist) * strength;
+      fy += (bestDelta.y / bestDist) * strength;
     }
   }
 
@@ -462,8 +469,8 @@ export function steerPredator(
   fy += rng.gaussian(0, 10);
 
   // Set behavior state
-  const hasTarget = closestDelta !== null;
-  if (hasTarget && closestDist < 900) p.behavior = 'attacking'; // within 30px
+  const hasTarget = bestDelta !== null;
+  if (hasTarget && bestDist < 30) p.behavior = 'attacking';
   else if (hasTarget) p.behavior = 'hunting';
   else if (hunger > 0.6) p.behavior = 'searching';
   else if (predBuf.length > 1) p.behavior = 'pack roaming';
@@ -735,9 +742,20 @@ export function updatePredators(
         const delta = herbHash.wrappedDelta(p.pos, h.pos);
         const d2 = delta.x * delta.x + delta.y * delta.y;
         if (d2 < attackRange * attackRange) {
-          h.alive = false;
-          events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
-          p.energy += config.predatorAttackEnergy;
+          // Attack probability based on size/speed mismatch
+          const speedAdv = (p.traits.speed - h.traits.speed) / (p.traits.speed || 1);
+          const sizeAdv = (p.traits.size - h.traits.size) / (p.traits.size || 1);
+          const killChance = Math.max(0.1, Math.min(0.95, 0.5 + speedAdv * 0.3 + sizeAdv * 0.2));
+
+          if (rng.next() < killChance) {
+            h.alive = false;
+            h.deathCause = 'killed';
+            events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
+            p.energy += config.predatorAttackEnergy;
+          } else {
+            // Failed attack — still costs energy
+            p.energy -= config.predatorAttackEnergy * 0.3;
+          }
           p.attackTimer = p.traits.attackCooldown;
           break;
         }
@@ -746,7 +764,7 @@ export function updatePredators(
 
     // Steering
     const steer = steerPredator(p, state, herbHash, predHash, rng);
-    const turnRate = 3.5;
+    const turnRate = p.traits.turnRate;
     p.vel.x += steer.x * turnRate * dt;
     p.vel.y += steer.y * turnRate * dt;
 
