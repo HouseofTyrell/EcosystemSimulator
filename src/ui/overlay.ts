@@ -22,7 +22,6 @@ export class UIOverlay {
   private speedEl: HTMLDivElement;
   private pauseEl: HTMLDivElement;
   private seedEl: HTMLDivElement;
-  private fadeTimeout: ReturnType<typeof setTimeout> | null = null;
   private callbacks: UICallbacks;
   private settingsCollapsed: boolean = false;
   private helpVisible: boolean = false;
@@ -298,24 +297,8 @@ export class UIOverlay {
     });
   }
 
-  private setupMouseFade(): void {
-    window.addEventListener('mousemove', () => {
-      this.showOverlay();
-    });
-  }
-
   private showOverlay(): void {
     this.overlay.classList.remove('hidden');
-    this.resetFadeTimer();
-  }
-
-  private resetFadeTimer(): void {
-    if (this.fadeTimeout) clearTimeout(this.fadeTimeout);
-    this.fadeTimeout = setTimeout(() => {
-      if (!this.callbacks.isPaused() && !this.helpVisible) {
-        this.overlay.classList.add('hidden');
-      }
-    }, 5000);
   }
 
   syncToggle(key: string, checked: boolean): void {
