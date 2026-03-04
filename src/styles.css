@@ -371,3 +371,15 @@ canvas {
 }
 #tooltip .tt-type { color: #8cf; font-weight: bold; }
 #tooltip .tt-behavior { color: #aaa; font-style: italic; }
+
+/* Minimap */
+#minimap {
+  position: fixed;
+  bottom: 80px;
+  left: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  z-index: 50;
+}
+#minimap canvas { display: block; }

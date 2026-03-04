@@ -8,6 +8,7 @@ import { CreatureInspector } from './ui/inspector';
 import { EventFeed } from './ui/feed';
 import { Camera } from './camera';
 import { Tooltip } from './ui/tooltip';
+import { Minimap } from './ui/minimap';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -20,6 +21,7 @@ class App {
   private feed!: EventFeed;
   private camera!: Camera;
   private tooltip!: Tooltip;
+  private minimap!: Minimap;
   private paused: boolean = false;
   private speed: number = 1;
   private trails: boolean = false;
@@ -79,6 +81,9 @@ class App {
     this.feed = new EventFeed(container);
 
     this.tooltip = new Tooltip(document.body);
+
+    this.minimap = new Minimap(document.body);
+    this.minimap.onClick((x, y) => this.camera.centerOn(x, y), this.sim.state.config);
 
     this.renderer.app.canvas.addEventListener('click', (e) => {
       const rect = this.renderer.app.canvas.getBoundingClientRect();
@@ -229,6 +234,7 @@ class App {
     this.inspector.autoPin(this.sim.state);
     this.inspector.update(this.sim.state, this.sim.state.time);
     this.feed.update(this.sim.state.feedEvents);
+    this.minimap.update(this.sim.state, this.camera.state);
   };
 
   private reset(seed: number): void {
