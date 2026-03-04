@@ -151,6 +151,38 @@ export class UIOverlay {
           <input type="range" min="0" max="1" value="0" data-key="bigMutationEnabled" data-scale="1" data-bool="true" />
           <span class="val">Off</span>
         </div>
+        <div class="settings-divider"></div>
+        <div class="settings-section-label">Balance</div>
+        <div class="setting-row">
+          <label>Herb Repro Energy</label>
+          <input type="range" min="40" max="160" value="80" data-key="herbivoreReproductionEnergy" data-scale="1" />
+          <span class="val">80</span>
+        </div>
+        <div class="setting-row">
+          <label>Pred Repro Energy</label>
+          <input type="range" min="50" max="200" value="100" data-key="predatorReproductionEnergy" data-scale="1" />
+          <span class="val">100</span>
+        </div>
+        <div class="setting-row">
+          <label>Scav Repro Energy</label>
+          <input type="range" min="30" max="120" value="60" data-key="scavengerReproductionEnergy" data-scale="1" />
+          <span class="val">60</span>
+        </div>
+        <div class="setting-row">
+          <label>Pred Attack Energy</label>
+          <input type="range" min="20" max="80" value="40" data-key="predatorAttackEnergy" data-scale="1" />
+          <span class="val">40</span>
+        </div>
+        <div class="setting-row">
+          <label>Herb Max Age</label>
+          <input type="range" min="30" max="120" value="60" data-key="herbivoreMaxAge" data-scale="1" />
+          <span class="val">60</span>
+        </div>
+        <div class="setting-row">
+          <label>Pred Max Age</label>
+          <input type="range" min="25" max="100" value="50" data-key="predatorMaxAge" data-scale="1" />
+          <span class="val">50</span>
+        </div>
       </div>
     `;
 
