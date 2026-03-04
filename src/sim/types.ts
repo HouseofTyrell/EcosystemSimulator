@@ -238,20 +238,20 @@ export const DEFAULT_CONFIG: SimConfig = {
   herbivoreReproductionCost: 50,
   herbivoreReproductionCooldownTime: 12,
   herbivoreEatRate: 0.4,
-  herbivoreMaxAge: 60,
+  herbivoreMaxAge: 120,
 
   initialPredators: 3,
   predatorReproductionEnergy: 130,
   predatorReproductionCost: 60,
   predatorReproductionCooldownTime: 15,
   predatorAttackEnergy: 40,
-  predatorMaxAge: 50,
+  predatorMaxAge: 100,
 
   initialScavengers: 5,
   scavengerReproductionEnergy: 80,
   scavengerReproductionCost: 35,
   scavengerReproductionCooldownTime: 10,
-  scavengerMaxAge: 45,
+  scavengerMaxAge: 90,
 
   mutationRate: 0.1,
   bigMutationEnabled: false,

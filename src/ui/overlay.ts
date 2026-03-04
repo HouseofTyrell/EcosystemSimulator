@@ -193,13 +193,13 @@ export class UIOverlay {
         </div>
         <div class="setting-row">
           <label>Herb Max Age</label>
-          <input type="range" min="30" max="120" value="60" data-key="herbivoreMaxAge" data-scale="1" />
-          <span class="val">60</span>
+          <input type="range" min="30" max="300" value="120" data-key="herbivoreMaxAge" data-scale="1" />
+          <span class="val">120</span>
         </div>
         <div class="setting-row">
           <label>Pred Max Age</label>
-          <input type="range" min="25" max="100" value="50" data-key="predatorMaxAge" data-scale="1" />
-          <span class="val">50</span>
+          <input type="range" min="25" max="250" value="100" data-key="predatorMaxAge" data-scale="1" />
+          <span class="val">100</span>
         </div>
       </div>
     `;
