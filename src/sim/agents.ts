@@ -290,6 +290,22 @@ export function steerHerbivore(
     if (d < vision * 0.7) fleeing = true;
   }
 
+  // Update threat memory
+  if (fleeing && predBuf.length > 0) {
+    h.lastThreatPos = { x: predBuf[0].pos.x, y: predBuf[0].pos.y };
+    h.threatTimer = 5;
+  }
+
+  // Continue fleeing from remembered threat
+  if (!fleeing && h.threatTimer > 0 && h.lastThreatPos) {
+    const dx = h.pos.x - h.lastThreatPos.x;
+    const dy = h.pos.y - h.lastThreatPos.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    fx += (dx / d) * 60;
+    fy += (dy / d) * 60;
+    fleeing = true;
+  }
+
   // 3) Separation from other herbivores
   const herbBuf: Herbivore[] = [];
   herbHash.query(h.pos, 40, herbBuf);
@@ -596,6 +612,7 @@ export function updateHerbivores(
     h.age += dt;
     const stage = getLifeStage(h.age, h.maxAge);
     h.reproductionCooldown = Math.max(0, h.reproductionCooldown - dt);
+    h.threatTimer = Math.max(0, h.threatTimer - dt);
 
     // Quadratic speed cost — fast creatures pay super-linearly
     const spdH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
@@ -617,6 +634,19 @@ export function updateHerbivores(
 
     // Steering
     const steer = steerHerbivore(h, state, herbHash, predHash, rng);
+
+    // Alarm propagation: fleeing herbivores alert nearby herd members
+    if (h.behavior === 'fleeing' && h.lastThreatPos) {
+      const nearbyHerbs: Herbivore[] = [];
+      herbHash.query(h.pos, 50, nearbyHerbs);
+      for (const other of nearbyHerbs) {
+        if (other.id === h.id) continue;
+        if (other.threatTimer <= 0) {
+          other.lastThreatPos = { x: h.lastThreatPos.x, y: h.lastThreatPos.y };
+          other.threatTimer = 3; // Shorter timer for chain alarms
+        }
+      }
+    }
 
     // Apply force (limited by turnRate)
     const turnRate = h.traits.turnRate;
@@ -660,6 +690,7 @@ export function updateHerbivores(
 
     // Death
     if (h.energy <= 0 || h.age > h.maxAge) {
+      h.deathCause = h.energy <= 0 ? 'starved' : 'old_age';
       h.alive = false;
       events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
       continue;
@@ -804,6 +835,7 @@ export function updatePredators(
 
     // Death
     if (p.energy <= 0 || p.age > p.maxAge) {
+      p.deathCause = p.energy <= 0 ? 'starved' : 'old_age';
       p.alive = false;
       events.push({ type: 'death', creatureType: 'predator', x: p.pos.x, y: p.pos.y });
       continue;
@@ -933,6 +965,7 @@ export function updateScavengers(
     }
 
     if (s.energy <= 0 || s.age > s.maxAge) {
+      s.deathCause = s.energy <= 0 ? 'starved' : 'old_age';
       s.alive = false;
       events.push({ type: 'death', creatureType: 'scavenger', x: s.pos.x, y: s.pos.y });
       continue;
