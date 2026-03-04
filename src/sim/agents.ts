@@ -19,6 +19,19 @@ import { SpatialHash } from './spatial';
 import { eatPlant, getPlantGradient } from './plants';
 import { getTerrainAt } from './terrain';
 
+function getLifeStage(age: number, maxAge: number): 'baby' | 'adult' | 'elder' {
+  const ratio = age / maxAge;
+  if (ratio < 0.15) return 'baby';
+  if (ratio < 0.75) return 'adult';
+  return 'elder';
+}
+
+function getSpeedMultiplier(stage: 'baby' | 'adult' | 'elder'): number {
+  if (stage === 'baby') return 0.8;
+  if (stage === 'elder') return 0.85;
+  return 1.0;
+}
+
 // --- Creation ---
 
 export function createHerbivore(
@@ -471,6 +484,7 @@ export function updateHerbivores(
 
     // Age
     h.age += dt;
+    const stage = getLifeStage(h.age, h.maxAge);
     h.reproductionCooldown = Math.max(0, h.reproductionCooldown - dt);
 
     // Energy cost: metabolism + speed-proportional cost (tradeoff: fast = expensive)
@@ -511,8 +525,9 @@ export function updateHerbivores(
     }
 
     // Move
-    h.pos.x += h.vel.x * dt;
-    h.pos.y += h.vel.y * dt;
+    const spdMul = getSpeedMultiplier(stage);
+    h.pos.x += h.vel.x * dt * spdMul;
+    h.pos.y += h.vel.y * dt * spdMul;
     if (config.wrapWorld) {
       h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -532,8 +547,9 @@ export function updateHerbivores(
 
     // Reproduction
     if (
-      h.energy > config.herbivoreReproductionEnergy &&
+      h.energy > config.herbivoreReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       h.reproductionCooldown <= 0 &&
+      stage !== 'baby' &&
       state.herbivores.length + newborns.length < config.maxHerbivores
     ) {
       h.energy -= config.herbivoreReproductionCost;
@@ -581,6 +597,7 @@ export function updatePredators(
 
     // Age
     p.age += dt;
+    const stage = getLifeStage(p.age, p.maxAge);
     p.reproductionCooldown = Math.max(0, p.reproductionCooldown - dt);
     p.attackTimer = Math.max(0, p.attackTimer - dt);
 
@@ -629,8 +646,9 @@ export function updatePredators(
     }
 
     // Move
-    p.pos.x += p.vel.x * dt;
-    p.pos.y += p.vel.y * dt;
+    const spdMul = getSpeedMultiplier(stage);
+    p.pos.x += p.vel.x * dt * spdMul;
+    p.pos.y += p.vel.y * dt * spdMul;
     if (config.wrapWorld) {
       p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -650,8 +668,9 @@ export function updatePredators(
 
     // Reproduction
     if (
-      p.energy > config.predatorReproductionEnergy &&
+      p.energy > config.predatorReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       p.reproductionCooldown <= 0 &&
+      stage !== 'baby' &&
       state.predators.length + newborns.length < config.maxPredators
     ) {
       p.energy -= config.predatorReproductionCost;
@@ -697,6 +716,7 @@ export function updateScavengers(
     if (!s.alive) continue;
 
     s.age += dt;
+    const stage = getLifeStage(s.age, s.maxAge);
     s.reproductionCooldown = Math.max(0, s.reproductionCooldown - dt);
 
     // Energy cost
@@ -745,8 +765,9 @@ export function updateScavengers(
       s.vel.y = Math.sin(angle) * 10;
     }
 
-    s.pos.x += s.vel.x * dt;
-    s.pos.y += s.vel.y * dt;
+    const spdMul = getSpeedMultiplier(stage);
+    s.pos.x += s.vel.x * dt * spdMul;
+    s.pos.y += s.vel.y * dt * spdMul;
     if (config.wrapWorld) {
       s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -763,7 +784,7 @@ export function updateScavengers(
       continue;
     }
 
-    if (s.energy > config.scavengerReproductionEnergy && s.reproductionCooldown <= 0 && state.scavengers.length + newborns.length < config.maxScavengers) {
+    if (s.energy > config.scavengerReproductionEnergy * (stage === 'elder' ? 2 : 1) && s.reproductionCooldown <= 0 && stage !== 'baby' && state.scavengers.length + newborns.length < config.maxScavengers) {
       s.energy -= config.scavengerReproductionCost;
       s.reproductionCooldown = config.scavengerReproductionCooldownTime;
       const offsetX = rng.range(-15, 15);

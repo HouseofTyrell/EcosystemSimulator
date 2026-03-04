@@ -49,6 +49,29 @@ function lerpColor(season: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+function getLifeVisuals(age: number, maxAge: number): { scaleMul: number; tintMix: number; glowAlphaMul: number } {
+  const ratio = age / maxAge;
+  if (ratio < 0.15) {
+    return { scaleMul: 0.6, tintMix: 0, glowAlphaMul: 1.2 };
+  }
+  if (ratio < 0.75) {
+    return { scaleMul: 1.0, tintMix: 0, glowAlphaMul: 1.0 };
+  }
+  const elderProgress = (ratio - 0.75) / 0.25;
+  return { scaleMul: 0.9, tintMix: elderProgress * 0.4, glowAlphaMul: 1.0 - elderProgress * 0.5 };
+}
+
+function mixTintGrey(tint: number, mix: number): number {
+  const r = (tint >> 16) & 0xff;
+  const g = (tint >> 8) & 0xff;
+  const b = tint & 0xff;
+  const grey = 0x88;
+  const nr = Math.round(r + (grey - r) * mix);
+  const ng = Math.round(g + (grey - g) * mix);
+  const nb = Math.round(b + (grey - b) * mix);
+  return (nr << 16) | (ng << 8) | nb;
+}
+
 export class Renderer {
   app: Application;
 
@@ -302,7 +325,9 @@ export class Renderer {
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
       // Base scale from size trait with breathing animation
-      const baseScale = h.traits.size * scaleX * 0.12;
+      const life = getLifeVisuals(h.age, h.maxAge);
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(0x55ddaa, life.tintMix);
+      const baseScale = h.traits.size * scaleX * 0.12 * life.scaleMul;
       const breathe = 1 + 0.06 * Math.sin(time * 3 + h.id * 0.7);
       sprite.scale.set(baseScale * breathe);
 
@@ -320,7 +345,7 @@ export class Renderer {
       glowH.x = sprite.x;
       glowH.y = sprite.y;
       glowH.tint = 0x55ddaa;
-      glowH.alpha = 0.3 + 0.1 * Math.sin(time * 2 + h.id);
+      glowH.alpha = (0.3 + 0.1 * Math.sin(time * 2 + h.id)) * life.glowAlphaMul;
       glowH.scale.set(baseScale * 1.8);
 
       if (selectedIds && selectedIds.includes(h.id)) {
@@ -344,7 +369,9 @@ export class Renderer {
       sprite.rotation = Math.atan2(p.vel.y, p.vel.x);
 
       // Base scale from size trait with prowl animation
-      const baseScale = p.traits.size * scaleX * 0.12;
+      const life = getLifeVisuals(p.age, p.maxAge);
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(0xee6655, life.tintMix);
+      const baseScale = p.traits.size * scaleX * 0.12 * life.scaleMul;
       const prowlPhase = Math.sin(time * 4 + p.id * 0.5);
       const sx = baseScale * (1 + 0.08 * prowlPhase);
       const sy = baseScale * (1 - 0.04 * prowlPhase);
@@ -364,7 +391,7 @@ export class Renderer {
       glowP.x = sprite.x;
       glowP.y = sprite.y;
       glowP.tint = 0xee6655;
-      glowP.alpha = 0.3 + 0.1 * Math.sin(time * 2 + p.id);
+      glowP.alpha = (0.3 + 0.1 * Math.sin(time * 2 + p.id)) * life.glowAlphaMul;
       glowP.scale.set(baseScale * 1.8);
 
       if (selectedIds && selectedIds.includes(p.id)) {
@@ -385,7 +412,9 @@ export class Renderer {
       sprite.y = s.pos.y * scaleY;
       sprite.tint = 0xccaa44;
       sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
-      const baseScale = s.traits.size * scaleX * 0.12;
+      const life = getLifeVisuals(s.age, s.maxAge);
+      if (life.tintMix > 0) sprite.tint = mixTintGrey(0xccaa44, life.tintMix);
+      const baseScale = s.traits.size * scaleX * 0.12 * life.scaleMul;
       const breathe = 1 + 0.05 * Math.sin(time * 2.5 + s.id * 0.9);
       sprite.scale.set(baseScale * breathe);
       let alpha = 0.4 + Math.min(s.traits.visionRange / 150, 1) * 0.6;
@@ -396,7 +425,7 @@ export class Renderer {
       glowS.x = sprite.x;
       glowS.y = sprite.y;
       glowS.tint = 0xccaa44;
-      glowS.alpha = 0.3 + 0.1 * Math.sin(time * 2 + s.id);
+      glowS.alpha = (0.3 + 0.1 * Math.sin(time * 2 + s.id)) * life.glowAlphaMul;
       glowS.scale.set(baseScale * 1.8);
 
       if (selectedIds && selectedIds.includes(s.id)) {
