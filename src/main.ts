@@ -96,7 +96,7 @@ class App {
 
     // Render every frame
     this.renderer.render(this.sim.state, this.sim.state.time);
-    this.ui.updateStats(this.sim.state.stats);
+    this.ui.updateStats(this.sim.state.stats, this.sim.state.time);
   };
 
   private reset(seed: number): void {

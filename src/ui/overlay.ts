@@ -221,8 +221,17 @@ export class UIOverlay {
     this.helpEl.classList.toggle('visible', this.helpVisible);
   }
 
-  updateStats(stats: SimStats): void {
+  private formatTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  updateStats(stats: SimStats, simTime: number): void {
     this.statsEl.innerHTML = `
+      <div><span class="label">Time:</span> <span class="value">${this.formatTime(simTime)}</span></div>
       <div><span class="label">Season:</span> <span class="season">${stats.seasonName}</span></div>
       <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
       <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span></div>
