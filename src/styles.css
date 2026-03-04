@@ -334,6 +334,22 @@ canvas {
   color: #7788aa;
 }
 
+.inspector-sparkline {
+  display: block;
+  width: 60px;
+  height: 20px;
+  margin: 2px 0;
+}
+
+.lineage-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 /* Event Feed */
 #event-feed {
   position: absolute;
