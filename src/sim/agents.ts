@@ -777,9 +777,28 @@ export function updateHerbivores(
       else if (h.pos.y >= config.worldHeight) { h.pos.y = config.worldHeight - 0.1; h.vel.y *= -0.5; }
     }
 
+    // Disease spread and damage
+    if (h.infected > 0) {
+      h.infected -= dt;
+      h.energy -= 3 * dt; // Damage over time
+      // Spread to nearby same-species
+      const diseaseNearby: typeof state.herbivores[0][] = [];
+      herbHash.query(h.pos, 30, diseaseNearby);
+      for (const other of diseaseNearby) {
+        if (other.id === h.id || other.infected > 0) continue;
+        const ddx = h.pos.x - other.pos.x;
+        const ddy = h.pos.y - other.pos.y;
+        const dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        if (rng.next() < 0.05 / dd) {
+          other.infected = 8;
+        }
+      }
+      if (h.infected <= 0) h.infected = 0;
+    }
+
     // Death
     if (h.energy <= 0 || h.age > h.maxAge) {
-      h.deathCause = h.energy <= 0 ? 'starved' : 'old_age';
+      h.deathCause = h.infected > 0 ? 'disease' : (h.energy <= 0 ? 'starved' : 'old_age');
       h.alive = false;
       events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
       continue;
@@ -922,9 +941,28 @@ export function updatePredators(
       else if (p.pos.y >= config.worldHeight) { p.pos.y = config.worldHeight - 0.1; p.vel.y *= -0.5; }
     }
 
+    // Disease spread and damage
+    if (p.infected > 0) {
+      p.infected -= dt;
+      p.energy -= 3 * dt; // Damage over time
+      // Spread to nearby same-species
+      const diseaseNearbyP: typeof state.predators[0][] = [];
+      predHash.query(p.pos, 30, diseaseNearbyP);
+      for (const other of diseaseNearbyP) {
+        if (other.id === p.id || other.infected > 0) continue;
+        const ddx = p.pos.x - other.pos.x;
+        const ddy = p.pos.y - other.pos.y;
+        const dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        if (rng.next() < 0.05 / dd) {
+          other.infected = 8;
+        }
+      }
+      if (p.infected <= 0) p.infected = 0;
+    }
+
     // Death
     if (p.energy <= 0 || p.age > p.maxAge) {
-      p.deathCause = p.energy <= 0 ? 'starved' : 'old_age';
+      p.deathCause = p.infected > 0 ? 'disease' : (p.energy <= 0 ? 'starved' : 'old_age');
       p.alive = false;
       events.push({ type: 'death', creatureType: 'predator', x: p.pos.x, y: p.pos.y });
       continue;
@@ -1053,8 +1091,27 @@ export function updateScavengers(
       else if (s.pos.y >= config.worldHeight) { s.pos.y = config.worldHeight - 0.1; s.vel.y *= -0.5; }
     }
 
+    // Disease spread and damage
+    if (s.infected > 0) {
+      s.infected -= dt;
+      s.energy -= 3 * dt; // Damage over time
+      // Spread to nearby same-species
+      const diseaseNearbyS: typeof state.scavengers[0][] = [];
+      scavHash.query(s.pos, 30, diseaseNearbyS);
+      for (const other of diseaseNearbyS) {
+        if (other.id === s.id || other.infected > 0) continue;
+        const ddx = s.pos.x - other.pos.x;
+        const ddy = s.pos.y - other.pos.y;
+        const dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        if (rng.next() < 0.05 / dd) {
+          other.infected = 8;
+        }
+      }
+      if (s.infected <= 0) s.infected = 0;
+    }
+
     if (s.energy <= 0 || s.age > s.maxAge) {
-      s.deathCause = s.energy <= 0 ? 'starved' : 'old_age';
+      s.deathCause = s.infected > 0 ? 'disease' : (s.energy <= 0 ? 'starved' : 'old_age');
       s.alive = false;
       events.push({ type: 'death', creatureType: 'scavenger', x: s.pos.x, y: s.pos.y });
       continue;
