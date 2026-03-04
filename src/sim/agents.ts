@@ -32,6 +32,25 @@ function getSpeedMultiplier(stage: 'baby' | 'adult' | 'elder'): number {
   return 1.0;
 }
 
+function getDayNightModifiers(dayPhase: number): { visionMul: number; herbSpeedMul: number; predSpeedMul: number } {
+  let nightIntensity: number;
+  if (dayPhase < 0.2) {
+    nightIntensity = Math.max(0, 1 - dayPhase / 0.2);
+  } else if (dayPhase < 0.55) {
+    nightIntensity = 0;
+  } else if (dayPhase < 0.75) {
+    nightIntensity = (dayPhase - 0.55) / 0.2;
+  } else {
+    nightIntensity = 1;
+  }
+
+  return {
+    visionMul: 1 - nightIntensity * 0.5,
+    herbSpeedMul: 1 - nightIntensity * 0.15,
+    predSpeedMul: 1 + nightIntensity * 0.2,
+  };
+}
+
 // --- Creation ---
 
 export function createHerbivore(
@@ -65,6 +84,17 @@ export function createHerbivore(
     maxAge: config.herbivoreMaxAge + rng.range(-5, 5),
     reproductionCooldown: config.herbivoreReproductionCooldownTime,
     alive: true,
+    lineageId: id,
+    generation: 0,
+    behavior: 'wandering',
+    stamina: 100,
+    exhausted: false,
+    lastThreatPos: null,
+    threatTimer: 0,
+    offspringCount: 0,
+    deathCause: null,
+    memory: null,
+    infected: 0,
     traits,
   };
 }
@@ -82,6 +112,7 @@ export function createPredator(
     : {
         speed: rng.range(55, 95),
         visionRange: rng.range(60, 130),
+        turnRate: rng.range(2, 5),
         attackCooldown: rng.range(1.0, 2.5),
         metabolism: rng.range(2, 4),
         size: rng.range(2.5, 5),
@@ -100,6 +131,17 @@ export function createPredator(
     maxAge: config.predatorMaxAge + rng.range(-5, 5),
     reproductionCooldown: config.predatorReproductionCooldownTime,
     alive: true,
+    lineageId: id,
+    generation: 0,
+    behavior: 'wandering',
+    stamina: 100,
+    exhausted: false,
+    lastThreatPos: null,
+    threatTimer: 0,
+    offspringCount: 0,
+    deathCause: null,
+    memory: null,
+    infected: 0,
     attackTimer: 0,
     traits,
   };
@@ -118,6 +160,7 @@ export function createScavenger(
     : {
         speed: rng.range(35, 70),
         visionRange: rng.range(50, 120),
+        turnRate: rng.range(2, 5),
         metabolism: rng.range(1, 3),
         size: rng.range(1.5, 3.5),
       };
@@ -135,6 +178,17 @@ export function createScavenger(
     maxAge: config.scavengerMaxAge + rng.range(-5, 5),
     reproductionCooldown: config.scavengerReproductionCooldownTime,
     alive: true,
+    lineageId: id,
+    generation: 0,
+    behavior: 'wandering',
+    stamina: 100,
+    exhausted: false,
+    lastThreatPos: null,
+    threatTimer: 0,
+    offspringCount: 0,
+    deathCause: null,
+    memory: null,
+    infected: 0,
     traits,
   };
 }
@@ -162,6 +216,7 @@ function mutatePredatorTraits(parent: PredatorTraits, rng: SeededRNG, config: Si
   return {
     speed: mutateVal(parent.speed, rng, config, 20, 170),
     visionRange: mutateVal(parent.visionRange, rng, config, 20, 250),
+    turnRate: mutateVal(parent.turnRate, rng, config, 1, 8),
     attackCooldown: mutateVal(parent.attackCooldown, rng, config, 0.3, 5),
     metabolism: mutateVal(parent.metabolism, rng, config, 0.5, 8),
     size: mutateVal(parent.size, rng, config, 1.5, 10),
@@ -172,6 +227,7 @@ function mutateScavengerTraits(parent: ScavengerTraits, rng: SeededRNG, config: 
   return {
     speed: mutateVal(parent.speed, rng, config, 15, 120),
     visionRange: mutateVal(parent.visionRange, rng, config, 20, 200),
+    turnRate: mutateVal(parent.turnRate, rng, config, 1, 8),
     metabolism: mutateVal(parent.metabolism, rng, config, 0.5, 6),
     size: mutateVal(parent.size, rng, config, 1, 7),
   };
@@ -190,7 +246,9 @@ export function steerHerbivore(
 ): Vec2 {
   let fx = 0, fy = 0;
   const config = state.config;
-  const vision = h.traits.visionRange;
+  const dayMods = getDayNightModifiers(state.dayPhase);
+  const fogMul = state.weather.type === 'fog' ? 1 - state.weather.intensity * 0.6 : 1;
+  const vision = h.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(h.energy / 100, 1); // 0=full, 1=starving
 
   // 1) Attraction to plant gradient (scaled by hunger)
@@ -202,6 +260,7 @@ export function steerHerbivore(
   // 2) Repulsion from predators
   const predBuf: Predator[] = [];
   predHash.query(h.pos, vision, predBuf);
+  let fleeing = false;
   for (let i = 0; i < predBuf.length; i++) {
     const p = predBuf[i];
     const delta = predHash.wrappedDelta(h.pos, p.pos);
@@ -211,6 +270,7 @@ export function steerHerbivore(
     const strength = 120 * (1 - d / vision);
     fx -= (delta.x / d) * strength;
     fy -= (delta.y / d) * strength;
+    if (d < vision * 0.7) fleeing = true;
   }
 
   // 3) Separation from other herbivores
@@ -290,6 +350,13 @@ export function steerHerbivore(
   fx += rng.gaussian(0, 12);
   fy += rng.gaussian(0, 12);
 
+  // Set behavior state
+  if (fleeing) h.behavior = 'fleeing';
+  else if (hunger > 0.7) h.behavior = 'starving';
+  else if (hunger > 0.4 && (grad.x * grad.x + grad.y * grad.y) > 0.01) h.behavior = 'grazing';
+  else if (herbBuf.length > 2) h.behavior = 'flocking';
+  else h.behavior = 'exploring';
+
   _steerResult.x = fx;
   _steerResult.y = fy;
   return _steerResult;
@@ -303,7 +370,9 @@ export function steerPredator(
   rng: SeededRNG
 ): Vec2 {
   let fx = 0, fy = 0;
-  const vision = p.traits.visionRange;
+  const dayMods = getDayNightModifiers(state.dayPhase);
+  const fogMul = state.weather.type === 'fog' ? 1 - state.weather.intensity * 0.6 : 1;
+  const vision = p.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(p.energy / 120, 1);
 
   // 1) Attraction to herbivores (scaled by hunger)
@@ -375,6 +444,14 @@ export function steerPredator(
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 
+  // Set behavior state
+  const hasTarget = closestDelta !== null;
+  if (hasTarget && closestDist < 900) p.behavior = 'attacking'; // within 30px
+  else if (hasTarget) p.behavior = 'hunting';
+  else if (hunger > 0.6) p.behavior = 'searching';
+  else if (predBuf.length > 1) p.behavior = 'pack roaming';
+  else p.behavior = 'prowling';
+
   _steerResult.x = fx;
   _steerResult.y = fy;
   return _steerResult;
@@ -388,7 +465,9 @@ export function steerScavenger(
 ): Vec2 {
   let fx = 0, fy = 0;
   const config = state.config;
-  const vision = s.traits.visionRange;
+  const dayMods = getDayNightModifiers(state.dayPhase);
+  const fogMul = state.weather.type === 'fog' ? 1 - state.weather.intensity * 0.6 : 1;
+  const vision = s.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(s.energy / 80, 1);
 
   // 1) Attraction to nearest corpse
@@ -460,6 +539,13 @@ export function steerScavenger(
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 
+  // Set behavior state
+  const hasCorpse = closestCorpseDelta !== null;
+  if (hasCorpse && closestCorpseDist < 400) s.behavior = 'feeding';
+  else if (hasCorpse) s.behavior = 'scavenging';
+  else if (hunger > 0.6) s.behavior = 'searching';
+  else s.behavior = 'roaming';
+
   _steerResult.x = fx;
   _steerResult.y = fy;
   return _steerResult;
@@ -525,9 +611,16 @@ export function updateHerbivores(
     }
 
     // Move
-    const spdMul = getSpeedMultiplier(stage);
+    const dayModsH = getDayNightModifiers(state.dayPhase);
+    const spdMul = getSpeedMultiplier(stage) * dayModsH.herbSpeedMul;
     h.pos.x += h.vel.x * dt * spdMul;
     h.pos.y += h.vel.y * dt * spdMul;
+    // Wind drift
+    if (state.weather.type === 'wind') {
+      const windForce = 15 * state.weather.intensity;
+      h.pos.x += Math.cos(state.weather.windAngle) * windForce * dt;
+      h.pos.y += Math.sin(state.weather.windAngle) * windForce * dt;
+    }
     if (config.wrapWorld) {
       h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -572,6 +665,8 @@ export function updateHerbivores(
         h.traits
       );
       child.energy = config.herbivoreReproductionCost * 0.6;
+      child.lineageId = h.lineageId;
+      child.generation = h.generation + 1;
       events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
     }
@@ -646,9 +741,16 @@ export function updatePredators(
     }
 
     // Move
-    const spdMul = getSpeedMultiplier(stage);
-    p.pos.x += p.vel.x * dt * spdMul;
-    p.pos.y += p.vel.y * dt * spdMul;
+    const dayModsP = getDayNightModifiers(state.dayPhase);
+    const spdMulP = getSpeedMultiplier(stage) * dayModsP.predSpeedMul;
+    p.pos.x += p.vel.x * dt * spdMulP;
+    p.pos.y += p.vel.y * dt * spdMulP;
+    // Wind drift
+    if (state.weather.type === 'wind') {
+      const windForce = 15 * state.weather.intensity;
+      p.pos.x += Math.cos(state.weather.windAngle) * windForce * dt;
+      p.pos.y += Math.sin(state.weather.windAngle) * windForce * dt;
+    }
     if (config.wrapWorld) {
       p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -693,6 +795,8 @@ export function updatePredators(
         p.traits
       );
       child.energy = config.predatorReproductionCost * 0.6;
+      child.lineageId = p.lineageId;
+      child.generation = p.generation + 1;
       events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
       newborns.push(child);
     }
@@ -765,9 +869,15 @@ export function updateScavengers(
       s.vel.y = Math.sin(angle) * 10;
     }
 
-    const spdMul = getSpeedMultiplier(stage);
-    s.pos.x += s.vel.x * dt * spdMul;
-    s.pos.y += s.vel.y * dt * spdMul;
+    const spdMulS = getSpeedMultiplier(stage);
+    s.pos.x += s.vel.x * dt * spdMulS;
+    s.pos.y += s.vel.y * dt * spdMulS;
+    // Wind drift
+    if (state.weather.type === 'wind') {
+      const windForce = 15 * state.weather.intensity;
+      s.pos.x += Math.cos(state.weather.windAngle) * windForce * dt;
+      s.pos.y += Math.sin(state.weather.windAngle) * windForce * dt;
+    }
     if (config.wrapWorld) {
       s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
@@ -802,6 +912,8 @@ export function updateScavengers(
         rng, config, s.traits
       );
       child.energy = config.scavengerReproductionCost * 0.6;
+      child.lineageId = s.lineageId;
+      child.generation = s.generation + 1;
       newborns.push(child);
       events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
     }

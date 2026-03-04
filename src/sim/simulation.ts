@@ -1,7 +1,7 @@
 // Main simulation orchestrator
 // Pure logic - no DOM, no rendering
 
-import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Corpse } from './types';
+import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Corpse, WeatherState } from './types';
 import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
@@ -43,6 +43,8 @@ export class Simulation {
   private prevPredCount: number = 0;
   private prevScavCount: number = 0;
   private milestones = new Set<string>();
+  private prevWeatherType: string = 'clear';
+  private prevLineageCounts: Map<number, number> = new Map();
 
   constructor(config?: Partial<SimConfig>) {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
@@ -59,6 +61,8 @@ export class Simulation {
       time: 0,
       season: 0,
       seasonalMultiplier: 1,
+      dayPhase: 0,
+      timeOfDay: 'Dawn',
       plantGrid: createPlantGrid(fullConfig),
       terrain: generateTerrain(fullConfig, fullConfig.seed),
       herbivores: [],
@@ -71,6 +75,10 @@ export class Simulation {
       activeEvent: null,
       eventCooldown: 30,
       feedEvents: [],
+      weather: { type: 'clear', intensity: 0, duration: 0, remaining: 0, windAngle: 0 },
+      weatherCooldown: 60,
+      lineageCounts: new Map(),
+      soilHealth: new Float32Array(fullConfig.plantGridCols * fullConfig.plantGridRows).fill(1.0),
     };
 
     this.spawnQueues = this.createSpawnQueues(fullConfig);
@@ -92,6 +100,9 @@ export class Simulation {
       avgScavengerSize: 0,
       seasonName: 'Spring',
       activeEventName: '',
+      timeOfDay: 'Dawn',
+      weatherName: 'Clear',
+      maxGeneration: 0,
     };
   }
 
@@ -167,6 +178,52 @@ export class Simulation {
     }
   }
 
+  private updateWeather(dt: number): void {
+    const state = this.state;
+    const weather = state.weather;
+
+    if (weather.type !== 'clear') {
+      weather.remaining -= dt;
+
+      // Fade in/out over 3 seconds
+      const fadeTime = 3;
+      const elapsed = weather.duration - weather.remaining;
+      if (elapsed < fadeTime) {
+        weather.intensity = elapsed / fadeTime;
+      } else if (weather.remaining < fadeTime) {
+        weather.intensity = Math.max(0, weather.remaining / fadeTime);
+      } else {
+        weather.intensity = 1;
+      }
+
+      // Wind: slowly rotate angle
+      if (weather.type === 'wind') {
+        weather.windAngle += dt * 0.1;
+      }
+
+      if (weather.remaining <= 0) {
+        weather.type = 'clear';
+        weather.intensity = 0;
+        state.weatherCooldown = 60 + this.rng.next() * 120;
+      }
+    } else {
+      state.weatherCooldown -= dt;
+      if (state.weatherCooldown <= 0 && this.rng.next() < 0.003) {
+        const roll = this.rng.next();
+        if (roll < 0.4) {
+          const dur = 30 + this.rng.next() * 30;
+          state.weather = { type: 'rain', intensity: 0, duration: dur, remaining: dur, windAngle: 0 };
+        } else if (roll < 0.75) {
+          const dur = 45 + this.rng.next() * 45;
+          state.weather = { type: 'wind', intensity: 0, duration: dur, remaining: dur, windAngle: this.rng.range(0, Math.PI * 2) };
+        } else {
+          const dur = 20 + this.rng.next() * 20;
+          state.weather = { type: 'fog', intensity: 0, duration: dur, remaining: dur, windAngle: 0 };
+        }
+      }
+    }
+  }
+
   step(dt: number): void {
     const state = this.state;
     const config = state.config;
@@ -176,15 +233,26 @@ export class Simulation {
     state.season = (state.time / config.seasonPeriod) % 1;
     state.seasonalMultiplier = getSeasonalMultiplier(state.time, config);
 
+    // Day/night cycle
+    state.dayPhase = (state.time / config.dayNightPeriod) % 1;
+    if (state.dayPhase < 0.25) state.timeOfDay = 'Dawn';
+    else if (state.dayPhase < 0.5) state.timeOfDay = 'Day';
+    else if (state.dayPhase < 0.75) state.timeOfDay = 'Dusk';
+    else state.timeOfDay = 'Night';
+
     // Gradual initial spawning
     this.updateSpawnQueues(dt);
 
     // Update environmental events
     updateEvents(state, dt, this.rng);
 
+    // Update weather
+    this.updateWeather(dt);
+
     // Update plants
     const eventMult = getEventPlantMultiplier(state);
-    updatePlants(state.plantGrid, dt, state.seasonalMultiplier * eventMult, config, state.terrain);
+    const weatherPlantMul = state.weather.type === 'rain' ? 1 + 0.5 * state.weather.intensity : 1;
+    updatePlants(state.plantGrid, dt, state.seasonalMultiplier * eventMult * weatherPlantMul, config, state.terrain);
 
     // Diffusion (periodic)
     this.diffusionAccum += dt;
@@ -333,6 +401,9 @@ export class Simulation {
     stats.predatorCount = preds.length;
     stats.seasonName = getSeasonName(state.time, state.config);
     stats.activeEventName = state.activeEvent ? state.activeEvent.type : 'none';
+    stats.timeOfDay = state.timeOfDay;
+    stats.weatherName = state.weather.type === 'clear' ? 'Clear' :
+      state.weather.type.charAt(0).toUpperCase() + state.weather.type.slice(1);
 
     // Plant density (average)
     let totalPlant = 0;
@@ -379,6 +450,17 @@ export class Simulation {
       stats.avgScavengerSpeed = spdSum / scavs.length;
       stats.avgScavengerSize = sizeSum / scavs.length;
     }
+
+    // Lineage population counts and max generation
+    state.lineageCounts.clear();
+    let maxGen = 0;
+    const allCreatures = [...herbs, ...preds, ...scavs];
+    for (let i = 0; i < allCreatures.length; i++) {
+      const c = allCreatures[i];
+      state.lineageCounts.set(c.lineageId, (state.lineageCounts.get(c.lineageId) || 0) + 1);
+      if (c.generation > maxGen) maxGen = c.generation;
+    }
+    stats.maxGeneration = maxGen;
   }
 
   private detectFeedEvents(): void {
@@ -419,6 +501,38 @@ export class Simulation {
     this.prevHerbCount = state.herbivores.length;
     this.prevPredCount = state.predators.length;
     this.prevScavCount = state.scavengers.length;
+
+    // Weather changes
+    if (state.weather.type !== this.prevWeatherType) {
+      if (state.weather.type !== 'clear') {
+        const wName = state.weather.type.charAt(0).toUpperCase() + state.weather.type.slice(1);
+        const weatherColors: Record<string, string> = { rain: '#4466aa', wind: '#8899aa', fog: '#aaaaaa' };
+        feed.push({ time: t, text: `${wName} rolling in`, color: weatherColors[state.weather.type] || '#8899aa' });
+      } else if (this.prevWeatherType !== 'clear') {
+        feed.push({ time: t, text: 'Weather cleared', color: '#8899aa' });
+      }
+    }
+    this.prevWeatherType = state.weather.type;
+
+    // Lineage milestones
+    for (const [lid, count] of state.lineageCounts) {
+      const prev = this.prevLineageCounts.get(lid) || 0;
+      if (count >= 5 && prev < 5) {
+        feed.push({ time: t, text: `Line #${lid} dominant (${count})`, color: '#aabbcc' });
+      }
+      if (count >= 10 && prev < 10) {
+        feed.push({ time: t, text: `Line #${lid} thriving (${count})`, color: '#ccddee' });
+      }
+    }
+    // Lineage endings
+    for (const [lid, prev] of this.prevLineageCounts) {
+      if (prev > 0 && (!state.lineageCounts.has(lid) || state.lineageCounts.get(lid) === 0)) {
+        if (prev >= 3) {
+          feed.push({ time: t, text: `Line #${lid} ended`, color: '#667788' });
+        }
+      }
+    }
+    this.prevLineageCounts = new Map(state.lineageCounts);
   }
 
   reset(seed?: number): void {
@@ -432,6 +546,8 @@ export class Simulation {
       time: 0,
       season: 0,
       seasonalMultiplier: 1,
+      dayPhase: 0,
+      timeOfDay: 'Dawn',
       plantGrid: createPlantGrid(config),
       terrain: generateTerrain(config, config.seed),
       herbivores: [],
@@ -444,6 +560,10 @@ export class Simulation {
       activeEvent: null,
       eventCooldown: 30,
       feedEvents: [],
+      weather: { type: 'clear', intensity: 0, duration: 0, remaining: 0, windAngle: 0 },
+      weatherCooldown: 60,
+      lineageCounts: new Map(),
+      soilHealth: new Float32Array(config.plantGridCols * config.plantGridRows).fill(1.0),
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;
@@ -454,5 +574,7 @@ export class Simulation {
     this.prevPredCount = 0;
     this.prevScavCount = 0;
     this.milestones.clear();
+    this.prevWeatherType = 'clear';
+    this.prevLineageCounts.clear();
   }
 }
