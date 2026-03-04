@@ -16,6 +16,7 @@ export interface HerbivoreTraits {
 export interface PredatorTraits {
   speed: number;
   visionRange: number;
+  turnRate: number;
   attackCooldown: number;
   metabolism: number;
   size: number;
@@ -24,8 +25,15 @@ export interface PredatorTraits {
 export interface ScavengerTraits {
   speed: number;
   visionRange: number;
+  turnRate: number;
   metabolism: number;
   size: number;
+}
+
+export interface SpatialMemory {
+  foodQuality: Float32Array;   // 64 cells (8x8)
+  dangerLevel: Float32Array;
+  lastVisited: Float32Array;
 }
 
 export interface Agent {
@@ -37,6 +45,17 @@ export interface Agent {
   maxAge: number;
   reproductionCooldown: number;
   alive: boolean;
+  lineageId: number;
+  generation: number;
+  behavior: string;
+  stamina: number;
+  exhausted: boolean;
+  lastThreatPos: Vec2 | null;
+  threatTimer: number;
+  offspringCount: number;
+  deathCause: 'starved' | 'killed' | 'old_age' | 'disease' | null;
+  memory: SpatialMemory | null;
+  infected: number; // 0 = healthy, >0 = infected timer
 }
 
 export interface Herbivore extends Agent {
@@ -84,6 +103,7 @@ export interface SimConfig {
   plantCarryingCapacity: number;
   seasonalStrength: number;
   seasonPeriod: number; // seconds for full cycle
+  dayNightPeriod: number; // seconds for one full day/night cycle
 
   // Herbivore defaults
   initialHerbivores: number;
@@ -130,6 +150,8 @@ export interface SimState {
   time: number;
   season: number; // 0-1 representing position in seasonal cycle
   seasonalMultiplier: number;
+  dayPhase: number; // 0-1: 0-0.25 dawn, 0.25-0.5 day, 0.5-0.75 dusk, 0.75-1.0 night
+  timeOfDay: 'Dawn' | 'Day' | 'Dusk' | 'Night';
   plantGrid: Float32Array;
   terrain: Uint8Array;
   herbivores: Herbivore[];
@@ -142,6 +164,10 @@ export interface SimState {
   activeEvent: ActiveEvent | null;
   eventCooldown: number;
   feedEvents: FeedEvent[];
+  weather: WeatherState;
+  weatherCooldown: number;
+  lineageCounts: Map<number, number>;
+  soilHealth: Float32Array;
 }
 
 export interface SimStats {
@@ -159,6 +185,9 @@ export interface SimStats {
   avgScavengerSize: number;
   seasonName: string;
   activeEventName: string;
+  timeOfDay: string;
+  weatherName: string;
+  maxGeneration: number;
 }
 
 export interface SimEvent {
@@ -183,6 +212,14 @@ export interface ActiveEvent {
   duration: number;
 }
 
+export interface WeatherState {
+  type: 'clear' | 'rain' | 'wind' | 'fog';
+  intensity: number; // 0-1, ramps up/down during transitions
+  duration: number;
+  remaining: number;
+  windAngle: number; // only used for wind
+}
+
 export const DEFAULT_CONFIG: SimConfig = {
   worldWidth: 1600,
   worldHeight: 900,
@@ -194,6 +231,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   plantCarryingCapacity: 1.0,
   seasonalStrength: 0.4,
   seasonPeriod: 180, // 3 minutes for a full season cycle
+  dayNightPeriod: 90, // 90s per full day cycle (2 cycles per season)
 
   initialHerbivores: 12,
   herbivoreReproductionEnergy: 105,
