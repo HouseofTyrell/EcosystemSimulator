@@ -1,11 +1,15 @@
 import type { FeedEvent } from '../sim/types';
 
-const MAX_ENTRIES = 6;
-const FADE_TIME = 30;
+const MAX_ENTRIES = 10;
+const DEFAULT_DURATION = 8;   // sim-seconds before fade begins
+const CRITICAL_DURATION = 15; // sim-seconds for critical events
 
 interface FeedEntry {
   event: FeedEvent;
-  addedAt: number;
+  addedAtSimTime: number;
+  duration: number;
+  critical: boolean;
+  borderColor: string;
 }
 
 export class EventFeed {
@@ -29,21 +33,34 @@ export class EventFeed {
     this.setVisible(!this.visible);
   }
 
-  update(feedEvents: FeedEvent[]): void {
-    const now = Date.now() / 1000;
+  update(feedEvents: FeedEvent[], simTime: number): void {
     for (let i = this.lastCount; i < feedEvents.length; i++) {
-      this.entries.push({ event: feedEvents[i], addedAt: now });
+      const ev = feedEvents[i];
+      const text = ev.text;
+      const isCritical = text.includes('EXTINCT') || text.includes('disease') || text.includes('bloom');
+      const borderColor = text.includes('EXTINCT') ? '#cc3333' :
+                          text.includes('disease') ? '#ccaa33' :
+                          text.includes('bloom') ? '#33cc66' : 'transparent';
+      const duration = isCritical ? CRITICAL_DURATION : DEFAULT_DURATION;
+      this.entries.push({
+        event: ev,
+        addedAtSimTime: simTime,
+        duration,
+        critical: isCritical,
+        borderColor,
+      });
     }
     this.lastCount = feedEvents.length;
 
-    this.entries = this.entries.filter(e => now - e.addedAt < FADE_TIME);
+    // Remove entries that have fully faded (age > duration)
+    this.entries = this.entries.filter(e => simTime - e.addedAtSimTime < e.duration);
 
     while (this.entries.length > MAX_ENTRIES) {
       this.entries.shift();
     }
 
     if (!this.visible) return;
-    this.render(now);
+    this.render(simTime);
   }
 
   reset(): void {
@@ -58,12 +75,14 @@ export class EventFeed {
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
-  private render(now: number): void {
+  private render(simTime: number): void {
     let html = '';
     for (const entry of this.entries) {
-      const age = now - entry.addedAt;
-      const alpha = Math.max(0.3, 1 - age / FADE_TIME);
-      html += `<div class="feed-entry" style="opacity:${alpha}">
+      const age = simTime - entry.addedAtSimTime;
+      const alpha = Math.max(0.3, 1 - age / entry.duration);
+      const criticalClass = entry.critical ? ' critical' : '';
+      const borderStyle = entry.critical ? ` border-left-color:${entry.borderColor};` : '';
+      html += `<div class="feed-entry${criticalClass}" style="opacity:${alpha};${borderStyle}">
         <span class="feed-time">${this.formatTime(entry.event.time)}</span>
         <span style="color:${entry.event.color}">${entry.event.text}</span>
       </div>`;

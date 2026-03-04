@@ -374,6 +374,11 @@ canvas {
   color: #8899aa;
 }
 
+.feed-entry.critical {
+  border-left: 3px solid;
+  padding-left: 8px;
+}
+
 .feed-time {
   color: #556677;
   margin-right: 6px;

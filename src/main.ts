@@ -233,7 +233,7 @@ class App {
     this.graph.update(this.sim.state.stats, this.sim.state.time);
     this.inspector.autoPin(this.sim.state);
     this.inspector.update(this.sim.state, this.sim.state.time);
-    this.feed.update(this.sim.state.feedEvents);
+    this.feed.update(this.sim.state.feedEvents, this.sim.state.time);
     this.minimap.update(this.sim.state, this.camera.state);
   };
 
