@@ -1,0 +1,197 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0f;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #8899aa;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+canvas {
+  display: block;
+}
+
+/* Overlay container */
+#overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+
+#overlay.hidden {
+  opacity: 0;
+}
+
+/* Stats display */
+#stats {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #556677;
+}
+
+#stats .label {
+  color: #445566;
+}
+
+#stats .value {
+  color: #8899aa;
+}
+
+#stats .herbivore { color: #44aa66; }
+#stats .predator { color: #cc5544; }
+#stats .plant { color: #448844; }
+#stats .season { color: #7788aa; }
+
+/* Help overlay */
+#help {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10, 10, 15, 0.92);
+  border: 1px solid #223344;
+  border-radius: 8px;
+  padding: 24px 32px;
+  font-size: 13px;
+  line-height: 1.8;
+  pointer-events: auto;
+  display: none;
+}
+
+#help.visible {
+  display: block;
+}
+
+#help h2 {
+  font-size: 14px;
+  color: #8899aa;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+#help .key {
+  display: inline-block;
+  background: #1a1a2a;
+  border: 1px solid #334455;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: #aabbcc;
+  min-width: 20px;
+  text-align: center;
+  margin-right: 8px;
+}
+
+/* Settings panel */
+#settings {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(10, 10, 15, 0.88);
+  border: 1px solid #223344;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 11px;
+  pointer-events: auto;
+  min-width: 200px;
+}
+
+#settings.collapsed {
+  padding: 8px 12px;
+  min-width: auto;
+}
+
+#settings.collapsed .settings-body {
+  display: none;
+}
+
+#settings .settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  color: #667788;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+#settings.collapsed .settings-header {
+  margin-bottom: 0;
+}
+
+#settings .setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+#settings .setting-row label {
+  color: #556677;
+}
+
+#settings .setting-row input[type="range"] {
+  width: 80px;
+  accent-color: #446688;
+}
+
+#settings .setting-row .val {
+  color: #7788aa;
+  min-width: 30px;
+  text-align: right;
+  font-size: 10px;
+}
+
+/* Speed indicator */
+#speed-indicator {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  font-size: 11px;
+  color: #445566;
+}
+
+/* Pause indicator */
+#pause-indicator {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: #667788;
+  display: none;
+}
+
+#pause-indicator.visible {
+  display: block;
+}
+
+/* Seed display */
+#seed-display {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  font-size: 10px;
+  color: #334455;
+}
