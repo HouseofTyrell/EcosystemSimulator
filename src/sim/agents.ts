@@ -11,6 +11,7 @@ import type {
   SimConfig,
   SimEvent,
   SimState,
+  SpatialMemory,
   Vec2,
 } from './types';
 import { TerrainType } from './types';
@@ -68,6 +69,78 @@ function getDayNightModifiers(dayPhase: number): { visionMul: number; herbSpeedM
   };
 }
 
+// --- Spatial Memory ---
+
+function createMemory(): SpatialMemory {
+  return {
+    foodQuality: new Float32Array(64),
+    dangerLevel: new Float32Array(64),
+    lastVisited: new Float32Array(64),
+  };
+}
+
+function getMemoryCell(x: number, y: number, worldW: number, worldH: number): number {
+  const col = Math.min(7, Math.max(0, Math.floor((x / worldW) * 8)));
+  const row = Math.min(7, Math.max(0, Math.floor((y / worldH) * 8)));
+  return row * 8 + col;
+}
+
+function updateMemory(
+  mem: SpatialMemory,
+  x: number,
+  y: number,
+  worldW: number,
+  worldH: number,
+  time: number,
+  plantDensity: number,
+  threatNearby: boolean,
+): void {
+  const cell = getMemoryCell(x, y, worldW, worldH);
+  const decay = 0.97;
+
+  for (let i = 0; i < 64; i++) {
+    mem.foodQuality[i] *= decay;
+    mem.dangerLevel[i] *= decay;
+  }
+
+  mem.foodQuality[cell] = mem.foodQuality[cell] * 0.8 + plantDensity * 0.2;
+  if (threatNearby) mem.dangerLevel[cell] = Math.min(1, mem.dangerLevel[cell] + 0.3);
+  mem.lastVisited[cell] = time;
+}
+
+function getMemorySteer(
+  mem: SpatialMemory,
+  x: number,
+  y: number,
+  worldW: number,
+  worldH: number,
+  time: number,
+): { x: number; y: number } {
+  let fx = 0, fy = 0;
+  const cellW = worldW / 8;
+  const cellH = worldH / 8;
+
+  for (let i = 0; i < 64; i++) {
+    const col = i % 8;
+    const row = Math.floor(i / 8);
+    const targetX = (col + 0.5) * cellW;
+    const targetY = (row + 0.5) * cellH;
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    const staleness = Math.min(1, (time - mem.lastVisited[i]) / 30);
+    const foodAttraction = mem.foodQuality[i] * (1 - staleness * 0.5);
+    const dangerRepulsion = mem.dangerLevel[i];
+
+    const strength = (foodAttraction * 15 - dangerRepulsion * 25) / (dist * 0.1 + 1);
+    fx += (dx / dist) * strength;
+    fy += (dy / dist) * strength;
+  }
+
+  return { x: fx, y: fy };
+}
+
 // --- Creation ---
 
 export function createHerbivore(
@@ -110,7 +183,7 @@ export function createHerbivore(
     threatTimer: 0,
     offspringCount: 0,
     deathCause: null,
-    memory: null,
+    memory: createMemory(),
     infected: 0,
     traits,
   };
@@ -383,6 +456,13 @@ export function steerHerbivore(
   fx += rng.gaussian(0, 12);
   fy += rng.gaussian(0, 12);
 
+  // 6) Memory-based navigation
+  if (h.memory) {
+    const memSteer = getMemorySteer(h.memory, h.pos.x, h.pos.y, config.worldWidth, config.worldHeight, state.time);
+    fx += memSteer.x;
+    fy += memSteer.y;
+  }
+
   // Set behavior state
   if (fleeing) h.behavior = 'fleeing';
   else if (hunger > 0.7) h.behavior = 'starving';
@@ -631,6 +711,15 @@ export function updateHerbivores(
       config
     );
     h.energy += eaten * 40; // energy per plant unit
+
+    // Update spatial memory
+    if (h.memory) {
+      const col = Math.floor(h.pos.x / (config.worldWidth / config.plantGridCols));
+      const row = Math.floor(h.pos.y / (config.worldHeight / config.plantGridRows));
+      const pidx = Math.max(0, Math.min(config.plantGridCols * config.plantGridRows - 1, row * config.plantGridCols + col));
+      const plantDensity = state.plantGrid[pidx] || 0;
+      updateMemory(h.memory, h.pos.x, h.pos.y, config.worldWidth, config.worldHeight, state.time, plantDensity, h.behavior === 'fleeing');
+    }
 
     // Steering
     const steer = steerHerbivore(h, state, herbHash, predHash, rng);
