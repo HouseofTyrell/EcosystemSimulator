@@ -25,7 +25,7 @@ export class UIOverlay {
   private fadeTimeout: ReturnType<typeof setTimeout> | null = null;
   private callbacks: UICallbacks;
   private settingsCollapsed: boolean = false;
-  private helpVisible: boolean = false;
+  private helpVisible: boolean = true;
 
   constructor(container: HTMLElement, callbacks: UICallbacks) {
     this.callbacks = callbacks;
@@ -72,6 +72,7 @@ export class UIOverlay {
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
     `;
+    this.helpEl.classList.add('visible');
     this.overlay.appendChild(this.helpEl);
 
     // Settings panel
@@ -103,7 +104,7 @@ export class UIOverlay {
         </div>
         <div class="setting-toggle-row">
           <label>Trails</label>
-          <input type="checkbox" data-toggle="trails" />
+          <input type="checkbox" checked data-toggle="trails" />
         </div>
         <div class="setting-toggle-row">
           <label>Graph</label>
@@ -115,7 +116,11 @@ export class UIOverlay {
         </div>
         <div class="setting-toggle-row">
           <label>Help</label>
-          <input type="checkbox" data-toggle="help" />
+          <input type="checkbox" checked data-toggle="help" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>World Wrap</label>
+          <input type="checkbox" data-toggle="wrapWorld" />
         </div>
         <div class="settings-divider"></div>
         <div class="settings-section-label">Simulation</div>
@@ -184,6 +189,8 @@ export class UIOverlay {
           this.helpEl.classList.toggle('visible', el.checked);
         } else if (key === 'trails') {
           cb.onConfigChange('trails', true);
+        } else if (key === 'wrapWorld') {
+          cb.onConfigChange('wrapWorld', el.checked);
         } else {
           // graph, feed — handled by main via onConfigChange
           cb.onConfigChange(key, el.checked);

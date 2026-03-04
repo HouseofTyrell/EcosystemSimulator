@@ -175,6 +175,12 @@ export class Renderer {
       .rect(0, 0, this.worldW, this.worldH)
       .fill({ color: finalBgColor });
 
+    if (!state.config.wrapWorld) {
+      this.backgroundLayer
+        .rect(1, 1, this.worldW - 2, this.worldH - 2)
+        .stroke({ color: 0x334455, width: 2, alpha: 0.6 });
+    }
+
     // === 2. Trails ===
     if (this.trails) {
       for (let i = 0; i < state.herbivores.length; i++) {

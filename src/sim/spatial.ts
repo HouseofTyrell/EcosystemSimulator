@@ -11,6 +11,7 @@ export class SpatialHash<T extends { pos: Vec2 }> {
   private cells: T[][];
   private worldW: number;
   private worldH: number;
+  wrap: boolean = true;
 
   constructor(worldW: number, worldH: number, cellSize: number) {
     this.worldW = worldW;
@@ -32,11 +33,15 @@ export class SpatialHash<T extends { pos: Vec2 }> {
   }
 
   private cellIndex(x: number, y: number): number {
-    // Wrap coordinates
-    let cx = Math.floor(x * this.invCellSize) % this.cols;
-    let cy = Math.floor(y * this.invCellSize) % this.rows;
-    if (cx < 0) cx += this.cols;
-    if (cy < 0) cy += this.rows;
+    let cx = Math.floor(x * this.invCellSize);
+    let cy = Math.floor(y * this.invCellSize);
+    if (this.wrap) {
+      cx = ((cx % this.cols) + this.cols) % this.cols;
+      cy = ((cy % this.rows) + this.rows) % this.rows;
+    } else {
+      cx = Math.max(0, Math.min(this.cols - 1, cx));
+      cy = Math.max(0, Math.min(this.rows - 1, cy));
+    }
     return cy * this.cols + cx;
   }
 
@@ -56,10 +61,15 @@ export class SpatialHash<T extends { pos: Vec2 }> {
 
     for (let cy = minCY; cy <= maxCY; cy++) {
       for (let cx = minCX; cx <= maxCX; cx++) {
-        let wcx = cx % this.cols;
-        let wcy = cy % this.rows;
-        if (wcx < 0) wcx += this.cols;
-        if (wcy < 0) wcy += this.rows;
+        let wcx: number, wcy: number;
+        if (this.wrap) {
+          wcx = ((cx % this.cols) + this.cols) % this.cols;
+          wcy = ((cy % this.rows) + this.rows) % this.rows;
+        } else {
+          wcx = cx;
+          wcy = cy;
+          if (wcx < 0 || wcx >= this.cols || wcy < 0 || wcy >= this.rows) continue;
+        }
 
         const cell = this.cells[wcy * this.cols + wcx];
         for (let i = 0; i < cell.length; i++) {
@@ -76,24 +86,28 @@ export class SpatialHash<T extends { pos: Vec2 }> {
   wrappedDist2(a: Vec2, b: Vec2): number {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
-    const hw = this.worldW * 0.5;
-    const hh = this.worldH * 0.5;
-    if (dx > hw) dx -= this.worldW;
-    else if (dx < -hw) dx += this.worldW;
-    if (dy > hh) dy -= this.worldH;
-    else if (dy < -hh) dy += this.worldH;
+    if (this.wrap) {
+      const hw = this.worldW * 0.5;
+      const hh = this.worldH * 0.5;
+      if (dx > hw) dx -= this.worldW;
+      else if (dx < -hw) dx += this.worldW;
+      if (dy > hh) dy -= this.worldH;
+      else if (dy < -hh) dy += this.worldH;
+    }
     return dx * dx + dy * dy;
   }
 
   wrappedDelta(from: Vec2, to: Vec2): Vec2 {
     let dx = to.x - from.x;
     let dy = to.y - from.y;
-    const hw = this.worldW * 0.5;
-    const hh = this.worldH * 0.5;
-    if (dx > hw) dx -= this.worldW;
-    else if (dx < -hw) dx += this.worldW;
-    if (dy > hh) dy -= this.worldH;
-    else if (dy < -hh) dy += this.worldH;
+    if (this.wrap) {
+      const hw = this.worldW * 0.5;
+      const hh = this.worldH * 0.5;
+      if (dx > hw) dx -= this.worldW;
+      else if (dx < -hw) dx += this.worldW;
+      if (dy > hh) dy -= this.worldH;
+      else if (dy < -hh) dy += this.worldH;
+    }
     return { x: dx, y: dy };
   }
 }

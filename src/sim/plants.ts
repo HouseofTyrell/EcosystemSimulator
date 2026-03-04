@@ -67,19 +67,22 @@ export function diffusePlants(
   const cols = config.plantGridCols;
   const rows = config.plantGridRows;
   const temp = new Float32Array(grid.length);
+  const wrap = config.wrapWorld;
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const idx = y * cols + x;
       const val = grid[idx];
 
-      // Get wrapped neighbors
-      const left = grid[y * cols + ((x - 1 + cols) % cols)];
-      const right = grid[y * cols + ((x + 1) % cols)];
-      const up = grid[((y - 1 + rows) % rows) * cols + x];
-      const down = grid[((y + 1) % rows) * cols + x];
+      let count = 0;
+      let sum = 0;
 
-      const avg = (left + right + up + down) * 0.25;
+      if (wrap || x > 0) { sum += grid[y * cols + (wrap ? (x - 1 + cols) % cols : x - 1)]; count++; }
+      if (wrap || x < cols - 1) { sum += grid[y * cols + (wrap ? (x + 1) % cols : x + 1)]; count++; }
+      if (wrap || y > 0) { sum += grid[(wrap ? (y - 1 + rows) % rows : y - 1) * cols + x]; count++; }
+      if (wrap || y < rows - 1) { sum += grid[(wrap ? (y + 1) % rows : y + 1) * cols + x]; count++; }
+
+      const avg = count > 0 ? sum / count : val;
       temp[idx] = val + (avg - val) * diffusionRate;
     }
   }

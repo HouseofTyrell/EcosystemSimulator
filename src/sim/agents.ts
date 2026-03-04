@@ -385,12 +385,14 @@ export function steerScavenger(
     const c = state.corpses[i];
     let dx = c.x - s.pos.x;
     let dy = c.y - s.pos.y;
-    const hw = config.worldWidth * 0.5;
-    const hh = config.worldHeight * 0.5;
-    if (dx > hw) dx -= config.worldWidth;
-    else if (dx < -hw) dx += config.worldWidth;
-    if (dy > hh) dy -= config.worldHeight;
-    else if (dy < -hh) dy += config.worldHeight;
+    if (config.wrapWorld) {
+      const hw = config.worldWidth * 0.5;
+      const hh = config.worldHeight * 0.5;
+      if (dx > hw) dx -= config.worldWidth;
+      else if (dx < -hw) dx += config.worldWidth;
+      if (dy > hh) dy -= config.worldHeight;
+      else if (dy < -hh) dy += config.worldHeight;
+    }
     const d2 = dx * dx + dy * dy;
     if (d2 < vision * vision && d2 < closestCorpseDist) {
       closestCorpseDist = d2;
@@ -509,8 +511,17 @@ export function updateHerbivores(
     }
 
     // Move
-    h.pos.x = ((h.pos.x + h.vel.x * dt) % config.worldWidth + config.worldWidth) % config.worldWidth;
-    h.pos.y = ((h.pos.y + h.vel.y * dt) % config.worldHeight + config.worldHeight) % config.worldHeight;
+    h.pos.x += h.vel.x * dt;
+    h.pos.y += h.vel.y * dt;
+    if (config.wrapWorld) {
+      h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
+      h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
+    } else {
+      if (h.pos.x < 0) { h.pos.x = 0; h.vel.x *= -0.5; }
+      else if (h.pos.x >= config.worldWidth) { h.pos.x = config.worldWidth - 0.1; h.vel.x *= -0.5; }
+      if (h.pos.y < 0) { h.pos.y = 0; h.vel.y *= -0.5; }
+      else if (h.pos.y >= config.worldHeight) { h.pos.y = config.worldHeight - 0.1; h.vel.y *= -0.5; }
+    }
 
     // Death
     if (h.energy <= 0 || h.age > h.maxAge) {
@@ -529,10 +540,16 @@ export function updateHerbivores(
 
       const offsetX = rng.range(-15, 15);
       const offsetY = rng.range(-15, 15);
+      const childX = config.wrapWorld
+        ? ((h.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
+        : Math.max(0, Math.min(config.worldWidth - 0.1, h.pos.x + offsetX));
+      const childY = config.wrapWorld
+        ? ((h.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
+        : Math.max(0, Math.min(config.worldHeight - 0.1, h.pos.y + offsetY));
       const child = createHerbivore(
         state.nextId++,
-        ((h.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth,
-        ((h.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight,
+        childX,
+        childY,
         rng,
         config,
         h.traits
@@ -611,8 +628,17 @@ export function updatePredators(
     }
 
     // Move
-    p.pos.x = ((p.pos.x + p.vel.x * dt) % config.worldWidth + config.worldWidth) % config.worldWidth;
-    p.pos.y = ((p.pos.y + p.vel.y * dt) % config.worldHeight + config.worldHeight) % config.worldHeight;
+    p.pos.x += p.vel.x * dt;
+    p.pos.y += p.vel.y * dt;
+    if (config.wrapWorld) {
+      p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
+      p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
+    } else {
+      if (p.pos.x < 0) { p.pos.x = 0; p.vel.x *= -0.5; }
+      else if (p.pos.x >= config.worldWidth) { p.pos.x = config.worldWidth - 0.1; p.vel.x *= -0.5; }
+      if (p.pos.y < 0) { p.pos.y = 0; p.vel.y *= -0.5; }
+      else if (p.pos.y >= config.worldHeight) { p.pos.y = config.worldHeight - 0.1; p.vel.y *= -0.5; }
+    }
 
     // Death
     if (p.energy <= 0 || p.age > p.maxAge) {
@@ -631,10 +657,16 @@ export function updatePredators(
 
       const offsetX = rng.range(-15, 15);
       const offsetY = rng.range(-15, 15);
+      const childX = config.wrapWorld
+        ? ((p.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
+        : Math.max(0, Math.min(config.worldWidth - 0.1, p.pos.x + offsetX));
+      const childY = config.wrapWorld
+        ? ((p.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
+        : Math.max(0, Math.min(config.worldHeight - 0.1, p.pos.y + offsetY));
       const child = createPredator(
         state.nextId++,
-        ((p.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth,
-        ((p.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight,
+        childX,
+        childY,
         rng,
         config,
         p.traits
@@ -676,12 +708,14 @@ export function updateScavengers(
       const c = state.corpses[j];
       let dx = c.x - s.pos.x;
       let dy = c.y - s.pos.y;
-      const hw = config.worldWidth * 0.5;
-      const hh = config.worldHeight * 0.5;
-      if (dx > hw) dx -= config.worldWidth;
-      else if (dx < -hw) dx += config.worldWidth;
-      if (dy > hh) dy -= config.worldHeight;
-      else if (dy < -hh) dy += config.worldHeight;
+      if (config.wrapWorld) {
+        const hw = config.worldWidth * 0.5;
+        const hh = config.worldHeight * 0.5;
+        if (dx > hw) dx -= config.worldWidth;
+        else if (dx < -hw) dx += config.worldWidth;
+        if (dy > hh) dy -= config.worldHeight;
+        else if (dy < -hh) dy += config.worldHeight;
+      }
       const d2 = dx * dx + dy * dy;
       if (d2 < eatRange * eatRange && c.energy > 0) {
         const eaten = Math.min(c.energy, 8 * dt);
@@ -709,8 +743,17 @@ export function updateScavengers(
       s.vel.y = Math.sin(angle) * 10;
     }
 
-    s.pos.x = ((s.pos.x + s.vel.x * dt) % config.worldWidth + config.worldWidth) % config.worldWidth;
-    s.pos.y = ((s.pos.y + s.vel.y * dt) % config.worldHeight + config.worldHeight) % config.worldHeight;
+    s.pos.x += s.vel.x * dt;
+    s.pos.y += s.vel.y * dt;
+    if (config.wrapWorld) {
+      s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
+      s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
+    } else {
+      if (s.pos.x < 0) { s.pos.x = 0; s.vel.x *= -0.5; }
+      else if (s.pos.x >= config.worldWidth) { s.pos.x = config.worldWidth - 0.1; s.vel.x *= -0.5; }
+      if (s.pos.y < 0) { s.pos.y = 0; s.vel.y *= -0.5; }
+      else if (s.pos.y >= config.worldHeight) { s.pos.y = config.worldHeight - 0.1; s.vel.y *= -0.5; }
+    }
 
     if (s.energy <= 0 || s.age > s.maxAge) {
       s.alive = false;
@@ -723,10 +766,16 @@ export function updateScavengers(
       s.reproductionCooldown = config.scavengerReproductionCooldownTime;
       const offsetX = rng.range(-15, 15);
       const offsetY = rng.range(-15, 15);
+      const childX = config.wrapWorld
+        ? ((s.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
+        : Math.max(0, Math.min(config.worldWidth - 0.1, s.pos.x + offsetX));
+      const childY = config.wrapWorld
+        ? ((s.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
+        : Math.max(0, Math.min(config.worldHeight - 0.1, s.pos.y + offsetY));
       const child = createScavenger(
         state.nextId++,
-        ((s.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth,
-        ((s.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight,
+        childX,
+        childY,
         rng, config, s.traits
       );
       child.energy = config.scavengerReproductionCost * 0.6;

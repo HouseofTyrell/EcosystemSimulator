@@ -12,7 +12,7 @@ class App {
   private ui!: UIOverlay;
   private paused: boolean = false;
   private speed: number = 1;
-  private trails: boolean = false;
+  private trails: boolean = true;
   private accumulator: number = 0;
   private lastTime: number = 0;
   private seed: number;
@@ -113,6 +113,15 @@ class App {
     if (key === 'trails') {
       this.trails = !this.trails;
       this.renderer.setTrails(this.trails);
+      return;
+    }
+
+    if (key === 'wrapWorld') {
+      const wrap = value as boolean;
+      this.sim.state.config.wrapWorld = wrap;
+      this.sim.herbHash.wrap = wrap;
+      this.sim.predHash.wrap = wrap;
+      this.sim.scavHash.wrap = wrap;
       return;
     }
 

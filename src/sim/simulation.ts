@@ -46,6 +46,9 @@ export class Simulation {
     this.herbHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
     this.predHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
     this.scavHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
+    this.herbHash.wrap = fullConfig.wrapWorld;
+    this.predHash.wrap = fullConfig.wrapWorld;
+    this.scavHash.wrap = fullConfig.wrapWorld;
 
     this.state = {
       config: fullConfig,
@@ -393,6 +396,9 @@ export class Simulation {
       activeEvent: null,
       eventCooldown: 30,
     };
+    this.herbHash.wrap = config.wrapWorld;
+    this.predHash.wrap = config.wrapWorld;
+    this.scavHash.wrap = config.wrapWorld;
     this.diffusionAccum = 0;
     this.spawnQueues = this.createSpawnQueues(config);
   }

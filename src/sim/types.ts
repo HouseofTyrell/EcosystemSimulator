@@ -109,6 +109,9 @@ export interface SimConfig {
 
   // Spatial hash
   spatialCellSize: number;
+
+  // World wrap
+  wrapWorld: boolean;
 }
 
 export interface SimState {
@@ -205,4 +208,6 @@ export const DEFAULT_CONFIG: SimConfig = {
   bigMutationChance: 0.02,
 
   spatialCellSize: 60,
+
+  wrapWorld: false,
 };
