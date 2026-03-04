@@ -49,7 +49,7 @@ export class Simulation {
       stats: this.emptyStats(),
       events: [],
       activeEvent: null,
-      eventCooldown: 0,
+      eventCooldown: 30,
     };
 
     this.spawnInitialPopulation();
@@ -120,8 +120,12 @@ export class Simulation {
     state.season = (state.time / config.seasonPeriod) % 1;
     state.seasonalMultiplier = getSeasonalMultiplier(state.time, config);
 
+    // Update environmental events
+    updateEvents(state, dt, this.rng);
+
     // Update plants
-    updatePlants(state.plantGrid, dt, state.seasonalMultiplier, config, state.terrain);
+    const eventMult = getEventPlantMultiplier(state);
+    updatePlants(state.plantGrid, dt, state.seasonalMultiplier * eventMult, config, state.terrain);
 
     // Diffusion (periodic)
     this.diffusionAccum += dt;
@@ -231,6 +235,7 @@ export class Simulation {
     stats.herbivoreCount = herbs.length;
     stats.predatorCount = preds.length;
     stats.seasonName = getSeasonName(state.time, state.config);
+    stats.activeEventName = state.activeEvent ? state.activeEvent.type : 'none';
 
     // Plant density (average)
     let totalPlant = 0;
@@ -286,7 +291,7 @@ export class Simulation {
       stats: this.emptyStats(),
       events: [],
       activeEvent: null,
-      eventCooldown: 0,
+      eventCooldown: 30,
     };
     this.diffusionAccum = 0;
     this.spawnInitialPopulation();

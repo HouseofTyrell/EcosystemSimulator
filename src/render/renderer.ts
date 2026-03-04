@@ -146,9 +146,24 @@ export class Renderer {
     // === 1. Seasonal background ===
     this.backgroundLayer.clear();
     const bgColor = lerpColor(state.season);
+    let finalBgColor = bgColor;
+    if (state.activeEvent) {
+      if (state.activeEvent.type === 'drought') {
+        // Shift toward brown
+        const r = (bgColor >> 16) & 0xff;
+        const g = (bgColor >> 8) & 0xff;
+        const b = bgColor & 0xff;
+        finalBgColor = (Math.min(r + 5, 255) << 16) | (g << 8) | Math.max(b - 3, 0);
+      } else if (state.activeEvent.type === 'bloom') {
+        const r = (bgColor >> 16) & 0xff;
+        const g = (bgColor >> 8) & 0xff;
+        const b = bgColor & 0xff;
+        finalBgColor = (r << 16) | (Math.min(g + 5, 255) << 8) | b;
+      }
+    }
     this.backgroundLayer
       .rect(0, 0, this.worldW, this.worldH)
-      .fill({ color: bgColor });
+      .fill({ color: finalBgColor });
 
     // === 2. Trails ===
     if (this.trails) {

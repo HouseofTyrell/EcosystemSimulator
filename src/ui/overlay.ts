@@ -233,6 +233,7 @@ export class UIOverlay {
     this.statsEl.innerHTML = `
       <div><span class="label">Time:</span> <span class="value">${this.formatTime(simTime)}</span></div>
       <div><span class="label">Season:</span> <span class="season">${stats.seasonName}</span></div>
+      <div><span class="label">Event:</span> <span class="value">${stats.activeEventName !== 'none' ? stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1) : '\u2014'}</span></div>
       <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
       <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span></div>
       <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span></div>
