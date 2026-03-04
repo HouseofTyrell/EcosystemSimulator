@@ -10,9 +10,11 @@ import type {
   SimState,
   Vec2,
 } from './types';
+import { TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
 import { eatPlant, getPlantGradient } from './plants';
+import { getTerrainAt } from './terrain';
 
 // --- Creation ---
 
@@ -204,7 +206,27 @@ export function steerHerbivore(
     }
   }
 
-  // 4) Wander noise
+  // 4) Water avoidance: check terrain ahead and to sides
+  const spd = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
+  const ahead = 20;
+  const checkPoints = [
+    { x: h.pos.x + (h.vel.x / (spd || 1)) * ahead, y: h.pos.y + (h.vel.y / (spd || 1)) * ahead },
+    { x: h.pos.x + ahead, y: h.pos.y },
+    { x: h.pos.x - ahead, y: h.pos.y },
+    { x: h.pos.x, y: h.pos.y + ahead },
+    { x: h.pos.x, y: h.pos.y - ahead },
+  ];
+  for (const cp of checkPoints) {
+    if (getTerrainAt(state.terrain, cp.x, cp.y, config) === TerrainType.Water) {
+      const dx = cp.x - h.pos.x;
+      const dy = cp.y - h.pos.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      fx -= (dx / d) * 150;
+      fy -= (dy / d) * 150;
+    }
+  }
+
+  // 5) Wander noise
   fx += rng.gaussian(0, 12);
   fy += rng.gaussian(0, 12);
 
@@ -268,7 +290,27 @@ export function steerPredator(
     fy -= (delta.y / d) * strength;
   }
 
-  // 3) Wander noise
+  // 3) Water avoidance: check terrain ahead and to sides
+  const spd = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+  const ahead = 20;
+  const checkPoints = [
+    { x: p.pos.x + (p.vel.x / (spd || 1)) * ahead, y: p.pos.y + (p.vel.y / (spd || 1)) * ahead },
+    { x: p.pos.x + ahead, y: p.pos.y },
+    { x: p.pos.x - ahead, y: p.pos.y },
+    { x: p.pos.x, y: p.pos.y + ahead },
+    { x: p.pos.x, y: p.pos.y - ahead },
+  ];
+  for (const cp of checkPoints) {
+    if (getTerrainAt(state.terrain, cp.x, cp.y, state.config) === TerrainType.Water) {
+      const dx = cp.x - p.pos.x;
+      const dy = cp.y - p.pos.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      fx -= (dx / d) * 150;
+      fy -= (dy / d) * 150;
+    }
+  }
+
+  // 4) Wander noise
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 

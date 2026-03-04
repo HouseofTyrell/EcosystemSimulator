@@ -2,7 +2,7 @@
 // Pure logic - no DOM, no rendering
 
 import type { SimConfig, SimState, SimStats, Herbivore, Predator } from './types';
-import { DEFAULT_CONFIG } from './types';
+import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
 import {
@@ -18,6 +18,7 @@ import {
   updateHerbivores,
   updatePredators,
 } from './agents';
+import { generateTerrain, getTerrainAt } from './terrain';
 
 export class Simulation {
   state: SimState;
@@ -39,6 +40,7 @@ export class Simulation {
       season: 0,
       seasonalMultiplier: 1,
       plantGrid: createPlantGrid(fullConfig),
+      terrain: generateTerrain(fullConfig, fullConfig.seed),
       herbivores: [],
       predators: [],
       nextId: 0,
@@ -68,10 +70,17 @@ export class Simulation {
     const config = this.state.config;
 
     for (let i = 0; i < config.initialHerbivores; i++) {
+      // Find non-water position
+      let x: number, y: number;
+      do {
+        x = this.rng.range(0, config.worldWidth);
+        y = this.rng.range(0, config.worldHeight);
+      } while (getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water);
+
       const h = createHerbivore(
         this.state.nextId++,
-        this.rng.range(0, config.worldWidth),
-        this.rng.range(0, config.worldHeight),
+        x,
+        y,
         this.rng,
         config
       );
@@ -79,10 +88,17 @@ export class Simulation {
     }
 
     for (let i = 0; i < config.initialPredators; i++) {
+      // Find non-water position
+      let x: number, y: number;
+      do {
+        x = this.rng.range(0, config.worldWidth);
+        y = this.rng.range(0, config.worldHeight);
+      } while (getTerrainAt(this.state.terrain, x, y, config) === TerrainType.Water);
+
       const p = createPredator(
         this.state.nextId++,
-        this.rng.range(0, config.worldWidth),
-        this.rng.range(0, config.worldHeight),
+        x,
+        y,
         this.rng,
         config
       );
@@ -100,7 +116,7 @@ export class Simulation {
     state.seasonalMultiplier = getSeasonalMultiplier(state.time, config);
 
     // Update plants
-    updatePlants(state.plantGrid, dt, state.seasonalMultiplier, config);
+    updatePlants(state.plantGrid, dt, state.seasonalMultiplier, config, state.terrain);
 
     // Diffusion (periodic)
     this.diffusionAccum += dt;
@@ -221,6 +237,7 @@ export class Simulation {
       season: 0,
       seasonalMultiplier: 1,
       plantGrid: createPlantGrid(config),
+      terrain: generateTerrain(config, config.seed),
       herbivores: [],
       predators: [],
       nextId: 0,

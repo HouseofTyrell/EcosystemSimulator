@@ -1,6 +1,7 @@
 // Plant density grid with logistic growth and seasonal modulation
 
 import type { SimConfig } from './types';
+import { TerrainType } from './types';
 
 export function createPlantGrid(config: SimConfig): Float32Array {
   const size = config.plantGridCols * config.plantGridRows;
@@ -30,7 +31,8 @@ export function updatePlants(
   grid: Float32Array,
   dt: number,
   seasonalMult: number,
-  config: SimConfig
+  config: SimConfig,
+  terrain: Uint8Array
 ): void {
   const K = config.plantCarryingCapacity;
   const r = config.plantGrowthRate * seasonalMult;
@@ -38,9 +40,18 @@ export function updatePlants(
   const rows = config.plantGridRows;
 
   for (let i = 0; i < cols * rows; i++) {
+    // Water cells have no plant growth
+    if (terrain[i] === TerrainType.Water) {
+      grid[i] = 0;
+      continue;
+    }
+
+    // Fertile cells grow at double rate
+    const effectiveR = terrain[i] === TerrainType.Fertile ? r * 2 : r;
+
     const p = grid[i];
     // Logistic growth: dp/dt = r * p * (1 - p/K)
-    const growth = r * p * (1 - p / K) * dt;
+    const growth = effectiveR * p * (1 - p / K) * dt;
     grid[i] = Math.max(0, Math.min(K, p + growth));
   }
 

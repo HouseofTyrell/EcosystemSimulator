@@ -47,6 +47,12 @@ export interface Predator extends Agent {
 
 export type Creature = Herbivore | Predator;
 
+export const enum TerrainType {
+  Land = 0,
+  Water = 1,
+  Fertile = 2,
+}
+
 export interface SimConfig {
   worldWidth: number;
   worldHeight: number;
@@ -91,6 +97,7 @@ export interface SimState {
   season: number; // 0-1 representing position in seasonal cycle
   seasonalMultiplier: number;
   plantGrid: Float32Array;
+  terrain: Uint8Array;
   herbivores: Herbivore[];
   predators: Predator[];
   nextId: number;

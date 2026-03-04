@@ -176,12 +176,36 @@ export class Renderer {
     this.herbPool.releaseAll();
     this.predPool.releaseAll();
 
-    // === 4. Plants ===
     const cols = config.plantGridCols;
     const rows = config.plantGridRows;
     const cellW = this.worldW / cols;
     const cellH = this.worldH / rows;
 
+    // === 4. Terrain ===
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const t = state.terrain[idx];
+        if (t === 0) continue; // Skip land (no visual)
+
+        const sprite = this.plantPool.acquire();
+        sprite.x = x * cellW + cellW * 0.5;
+        sprite.y = y * cellH + cellH * 0.5;
+        sprite.scale.set(1.2);
+
+        if (t === 1) {
+          // Water
+          sprite.tint = 0x1a2a4a;
+          sprite.alpha = 0.35;
+        } else {
+          // Fertile
+          sprite.tint = 0x1a3a1a;
+          sprite.alpha = 0.15;
+        }
+      }
+    }
+
+    // === 5. Plants ===
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const density = state.plantGrid[y * cols + x];
@@ -197,7 +221,7 @@ export class Renderer {
       }
     }
 
-    // === 5. Herbivores ===
+    // === 6. Herbivores ===
     for (let i = 0; i < state.herbivores.length; i++) {
       const h = state.herbivores[i];
       const sprite = this.herbPool.acquire();
@@ -223,7 +247,7 @@ export class Renderer {
       sprite.alpha = alpha;
     }
 
-    // === 6. Predators ===
+    // === 7. Predators ===
     for (let i = 0; i < state.predators.length; i++) {
       const p = state.predators[i];
       const sprite = this.predPool.acquire();
@@ -251,7 +275,7 @@ export class Renderer {
       sprite.alpha = alpha;
     }
 
-    // === 7. Process events ===
+    // === 8. Process events ===
     for (let i = 0; i < state.events.length; i++) {
       const ev = state.events[i];
       const ex = ev.x * scaleX;
@@ -296,7 +320,7 @@ export class Renderer {
       }
     }
 
-    // === 8. Update active particles ===
+    // === 9. Update active particles ===
     const dt = 1 / 60;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const part = this.particles[i];
