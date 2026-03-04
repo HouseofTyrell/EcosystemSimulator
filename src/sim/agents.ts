@@ -20,6 +20,15 @@ import { SpatialHash } from './spatial';
 import { eatPlant, getPlantGradient } from './plants';
 import { getTerrainAt } from './terrain';
 
+/** Density-dependent reproduction probability. Returns true if reproduction allowed. */
+function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
+  const softCap = hardCap * 0.7;
+  if (currentPop >= hardCap) return false;
+  const ratio = currentPop / softCap;
+  const chance = Math.max(0, 1 - ratio * ratio);
+  return rng.next() < chance;
+}
+
 function getLifeStage(age: number, maxAge: number): 'baby' | 'adult' | 'elder' {
   const ratio = age / maxAge;
   if (ratio < 0.15) return 'baby';
@@ -809,7 +818,8 @@ export function updateHerbivores(
       h.energy > config.herbivoreReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       h.reproductionCooldown <= 0 &&
       stage !== 'baby' &&
-      state.herbivores.length + newborns.length < config.maxHerbivores
+      state.herbivores.length + newborns.length < config.maxHerbivores &&
+      densityReproChance(state.herbivores.length, config.maxHerbivores, rng)
     ) {
       h.energy -= config.herbivoreReproductionCost;
       h.reproductionCooldown = config.herbivoreReproductionCooldownTime;
@@ -973,7 +983,8 @@ export function updatePredators(
       p.energy > config.predatorReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       p.reproductionCooldown <= 0 &&
       stage !== 'baby' &&
-      state.predators.length + newborns.length < config.maxPredators
+      state.predators.length + newborns.length < config.maxPredators &&
+      densityReproChance(state.predators.length, config.maxPredators, rng)
     ) {
       p.energy -= config.predatorReproductionCost;
       p.reproductionCooldown = config.predatorReproductionCooldownTime;
@@ -1117,7 +1128,7 @@ export function updateScavengers(
       continue;
     }
 
-    if (s.energy > config.scavengerReproductionEnergy * (stage === 'elder' ? 2 : 1) && s.reproductionCooldown <= 0 && stage !== 'baby' && state.scavengers.length + newborns.length < config.maxScavengers) {
+    if (s.energy > config.scavengerReproductionEnergy * (stage === 'elder' ? 2 : 1) && s.reproductionCooldown <= 0 && stage !== 'baby' && state.scavengers.length + newborns.length < config.maxScavengers && densityReproChance(state.scavengers.length, config.maxScavengers, rng)) {
       s.energy -= config.scavengerReproductionCost;
       s.reproductionCooldown = config.scavengerReproductionCooldownTime;
       const offsetX = rng.range(-15, 15);
