@@ -32,6 +32,23 @@ function getSpeedMultiplier(stage: 'baby' | 'adult' | 'elder'): number {
   return 1.0;
 }
 
+function updateStamina(creature: { stamina: number; exhausted: boolean; vel: Vec2 }, maxSpeed: number, dt: number): number {
+  const spd = Math.sqrt(creature.vel.x * creature.vel.x + creature.vel.y * creature.vel.y);
+  const relSpeed = spd / (maxSpeed || 1);
+
+  if (relSpeed > 0.8) {
+    creature.stamina = Math.max(0, creature.stamina - 15 * dt);
+  } else if (relSpeed < 0.4) {
+    creature.stamina = Math.min(100, creature.stamina + 8 * dt);
+  }
+
+  if (creature.stamina <= 0) creature.exhausted = true;
+  if (creature.exhausted && creature.stamina >= 30) creature.exhausted = false;
+
+  // Return effective max speed
+  return creature.exhausted ? maxSpeed * 0.6 : maxSpeed;
+}
+
 function getDayNightModifiers(dayPhase: number): { visionMul: number; herbSpeedMul: number; predSpeedMul: number } {
   let nightIntensity: number;
   if (dayPhase < 0.2) {
@@ -598,7 +615,7 @@ export function updateHerbivores(
 
     // Clamp speed
     const spd = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
-    const maxSpd = h.traits.speed;
+    const maxSpd = updateStamina(h, h.traits.speed, dt);
     if (spd > maxSpd) {
       h.vel.x = (h.vel.x / spd) * maxSpd;
       h.vel.y = (h.vel.y / spd) * maxSpd;
@@ -729,7 +746,7 @@ export function updatePredators(
 
     // Clamp speed
     const spd = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
-    const maxSpd = p.traits.speed;
+    const maxSpd = updateStamina(p, p.traits.speed, dt);
     if (spd > maxSpd) {
       p.vel.x = (p.vel.x / spd) * maxSpd;
       p.vel.y = (p.vel.y / spd) * maxSpd;
@@ -858,7 +875,7 @@ export function updateScavengers(
     s.vel.y += steer.y * turnRate * dt;
 
     const spd = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
-    const maxSpd = s.traits.speed;
+    const maxSpd = updateStamina(s, s.traits.speed, dt);
     if (spd > maxSpd) {
       s.vel.x = (s.vel.x / spd) * maxSpd;
       s.vel.y = (s.vel.y / spd) * maxSpd;
