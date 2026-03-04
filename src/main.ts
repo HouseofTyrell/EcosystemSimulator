@@ -267,6 +267,11 @@ class App {
       return;
     }
 
+    if (key === 'traits') {
+      this.graph.toggleTraits();
+      return;
+    }
+
     if (key === 'trails') {
       this.trails = !this.trails;
       this.renderer.setTrails(this.trails);

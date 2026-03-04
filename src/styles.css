@@ -242,6 +242,14 @@ canvas {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
+#trait-sparklines {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
+  height: 32px;
+  pointer-events: none;
+}
+
 #population-graph {
   position: absolute;
   bottom: 0;

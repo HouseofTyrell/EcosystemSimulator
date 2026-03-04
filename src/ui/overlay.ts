@@ -23,7 +23,7 @@ export class UIOverlay {
   private pauseEl: HTMLDivElement;
   private seedEl: HTMLDivElement;
   private callbacks: UICallbacks;
-  private settingsCollapsed: boolean = false;
+  private settingsCollapsed: boolean = true;
   private helpVisible: boolean = false;
 
   constructor(container: HTMLElement, callbacks: UICallbacks) {
@@ -68,6 +68,7 @@ export class UIOverlay {
       <div><span class="key">3</span> Speed 2x</div>
       <div><span class="key">4</span> Speed 4x</div>
       <div><span class="key">T</span> Toggle trails</div>
+      <div><span class="key">E</span> Toggle trait sparklines</div>
       <div><span class="key">G</span> Toggle graph</div>
       <div><span class="key">F</span> Toggle event feed</div>
       <div><span class="key">Esc</span> Clear inspector</div>
@@ -81,6 +82,7 @@ export class UIOverlay {
     this.settingsEl.id = 'settings';
     // Settings starts expanded so users can discover display toggles
     this.buildSettings();
+    this.settingsEl.classList.add('collapsed');
     this.overlay.appendChild(this.settingsEl);
 
     // Key bindings
@@ -95,7 +97,7 @@ export class UIOverlay {
     this.settingsEl.innerHTML = `
       <div class="settings-header">
         <span>Settings</span>
-        <span class="toggle-icon">&minus;</span>
+        <span class="toggle-icon">+</span>
       </div>
       <div class="settings-body">
         <div class="settings-section-label">Display</div>
@@ -117,12 +119,24 @@ export class UIOverlay {
           <input type="checkbox" checked data-toggle="graph" />
         </div>
         <div class="setting-toggle-row">
+          <label>Trait Sparklines</label>
+          <input type="checkbox" data-toggle="traits" />
+        </div>
+        <div class="setting-toggle-row">
           <label>Event Feed</label>
           <input type="checkbox" checked data-toggle="feed" />
         </div>
         <div class="setting-toggle-row">
           <label>Help</label>
           <input type="checkbox" data-toggle="help" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Day/Night</label>
+          <input type="checkbox" checked data-toggle="daynight" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Weather</label>
+          <input type="checkbox" checked data-toggle="weather" />
         </div>
         <div class="setting-toggle-row">
           <label>World Wrap</label>
@@ -230,7 +244,7 @@ export class UIOverlay {
         } else if (key === 'wrapWorld') {
           cb.onConfigChange('wrapWorld', el.checked);
         } else {
-          // graph, feed — handled by main via onConfigChange
+          // graph, traits, feed — handled by main via onConfigChange
           cb.onConfigChange(key, el.checked);
         }
       });
@@ -280,6 +294,10 @@ export class UIOverlay {
           cb.onConfigChange('trails', true); // toggled by main
           this.syncToggle('trails', !this.getToggleState('trails'));
           break;
+        case 'KeyE':
+          cb.onConfigChange('traits', true);
+          this.syncToggle('traits', !this.getToggleState('traits'));
+          break;
         case 'KeyG':
           cb.onConfigChange('graph', true);
           this.syncToggle('graph', !this.getToggleState('graph'));
@@ -328,11 +346,14 @@ export class UIOverlay {
     this.statsEl.innerHTML = `
       <div><span class="label">Time:</span> <span class="value">${this.formatTime(simTime)}</span></div>
       <div><span class="label">Season:</span> <span class="season">${stats.seasonName}</span></div>
+      <div><span class="label">Period:</span> <span class="value">${stats.timeOfDay}</span></div>
+      <div><span class="label">Weather:</span> <span class="value">${stats.weatherName}</span></div>
       <div><span class="label">Event:</span> <span class="value">${stats.activeEventName !== 'none' ? stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1) : '\u2014'}</span></div>
       <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
       <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span></div>
       <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span></div>
       <div><span class="label">Scavengers:</span> <span class="value" style="color: #ccaa44">${stats.scavengerCount}</span></div>
+      <div><span class="label">Max Gen:</span> <span class="value">${stats.maxGeneration}</span></div>
       <div style="margin-top: 6px;">
         <span class="label">Herb avg:</span>
         <span class="herbivore">spd ${stats.avgHerbivoreSpeed.toFixed(0)} size ${stats.avgHerbivoreSize.toFixed(1)} vis ${stats.avgHerbivoreVision.toFixed(0)}</span>
