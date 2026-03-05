@@ -121,6 +121,12 @@ export class Simulation {
       timeOfDay: 'Dawn',
       weatherName: 'Clear',
       maxGeneration: 0,
+      grazerCount: 0,
+      foragerCount: 0,
+      stalkerCount: 0,
+      packHunterCount: 0,
+      vultureCount: 0,
+      beetleCount: 0,
     };
   }
 
@@ -488,6 +494,27 @@ export class Simulation {
       if (c.generation > maxGen) maxGen = c.generation;
     }
     stats.maxGeneration = maxGen;
+
+    let grazerCount = 0, foragerCount = 0;
+    for (const h of herbs) {
+      if (h.subspecies === 0) grazerCount++; else foragerCount++;
+    }
+    stats.grazerCount = grazerCount;
+    stats.foragerCount = foragerCount;
+
+    let stalkerCount = 0, packHunterCount = 0;
+    for (const p of preds) {
+      if (p.subspecies === 0) stalkerCount++; else packHunterCount++;
+    }
+    stats.stalkerCount = stalkerCount;
+    stats.packHunterCount = packHunterCount;
+
+    let vultureCount = 0, beetleCount = 0;
+    for (const s of scavs) {
+      if (s.subspecies === 0) vultureCount++; else beetleCount++;
+    }
+    stats.vultureCount = vultureCount;
+    stats.beetleCount = beetleCount;
   }
 
   private detectFeedEvents(): void {

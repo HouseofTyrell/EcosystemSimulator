@@ -1,5 +1,6 @@
 import type { Creature, SimState } from '../sim/types';
 import { makeDraggable } from './draggable';
+import { getSubspeciesName } from '../sim/subspecies';
 
 const MAX_PINS = 3;
 
@@ -182,6 +183,8 @@ export class CreatureInspector {
           <div class="inspector-row"><span>Energy</span><span>${c.energy.toFixed(0)}</span></div>
           <div class="inspector-row"><span>Age</span><span>${c.age.toFixed(0)}s / ${c.maxAge.toFixed(0)}s (${agePct}%)</span></div>
           <div class="inspector-row"><span>Lineage</span><span><span class="lineage-swatch" style="background:${color}"></span>#${c.lineageId} gen ${c.generation}</span></div>
+          <div class="inspector-trait"><span>Species</span><span>${getSubspeciesName(c.type, c.subspecies)}</span></div>
+          ${c.deathCause ? `<div class="inspector-trait"><span>Death</span><span>${c.deathCause.replace('_', ' ')}</span></div>` : ''}
           <div class="inspector-row"><span>Offspring</span><span>${c.offspringCount}</span></div>
           <div class="inspector-row"><span>State</span><span>${stateHint}</span></div>
           ${traitsHtml}

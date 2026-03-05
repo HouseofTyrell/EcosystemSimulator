@@ -195,6 +195,12 @@ export interface SimStats {
   timeOfDay: string;
   weatherName: string;
   maxGeneration: number;
+  grazerCount: number;
+  foragerCount: number;
+  stalkerCount: number;
+  packHunterCount: number;
+  vultureCount: number;
+  beetleCount: number;
 }
 
 export interface SimEvent {

@@ -369,9 +369,9 @@ export class UIOverlay {
       <div><span class="label">Weather:</span> <span class="value">${stats.weatherName}</span></div>
       <div><span class="label">Event:</span> <span class="value">${stats.activeEventName !== 'none' ? stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1) : '\u2014'}</span></div>
       <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
-      <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span></div>
-      <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span></div>
-      <div><span class="label">Scavengers:</span> <span class="value" style="color: #ccaa44">${stats.scavengerCount}</span></div>
+      <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span> <span style="color:#44ccaa;font-size:9px">(G:${stats.grazerCount} F:${stats.foragerCount})</span></div>
+      <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span> <span style="color:#ee6644;font-size:9px">(S:${stats.stalkerCount} P:${stats.packHunterCount})</span></div>
+      <div><span class="label">Scavengers:</span> <span class="value" style="color: #ccaa44">${stats.scavengerCount}</span> <span style="color:#ccaa44;font-size:9px">(V:${stats.vultureCount} B:${stats.beetleCount})</span></div>
       <div><span class="label">Max Gen:</span> <span class="value">${stats.maxGeneration}</span></div>
       <div style="margin-top: 6px;">
         <span class="label">Herb avg:</span>
