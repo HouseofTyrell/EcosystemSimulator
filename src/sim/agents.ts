@@ -1132,7 +1132,7 @@ export function updatePredators(
       continue;
     }
 
-    // Reproduction
+    // Reproduction: two-parent mating system
     if (
       p.energy > config.predatorReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       p.reproductionCooldown <= 0 &&
@@ -1140,32 +1140,59 @@ export function updatePredators(
       state.predators.length + newborns.length < config.maxPredators &&
       densityReproChance(state.predators.length, config.maxPredators, rng)
     ) {
-      p.energy -= config.predatorReproductionCost;
-      p.reproductionCooldown = config.predatorReproductionCooldownTime;
+      const mateBuf: Predator[] = [];
+      predHash.query(p.pos, 60, mateBuf);
+      let mate: Predator | null = null;
+      for (let mi = 0; mi < mateBuf.length; mi++) {
+        const m = mateBuf[mi];
+        if (m.id === p.id) continue;
+        if (m.subspecies !== p.subspecies) continue;
+        if (m.energy < config.predatorReproductionEnergy * 0.5) continue;
+        if (m.reproductionCooldown > 0) continue;
+        const mStage = m.age / m.maxAge;
+        if (mStage < 0.15) continue;
+        mate = m;
+        break;
+      }
 
-      const offsetX = rng.range(-15, 15);
-      const offsetY = rng.range(-15, 15);
-      const childX = config.wrapWorld
-        ? ((p.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
-        : Math.max(0, Math.min(config.worldWidth - 0.1, p.pos.x + offsetX));
-      const childY = config.wrapWorld
-        ? ((p.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
-        : Math.max(0, Math.min(config.worldHeight - 0.1, p.pos.y + offsetY));
-      const child = createPredator(
-        state.nextId++,
-        childX,
-        childY,
-        rng,
-        config,
-        p.traits
-      );
-      child.energy = config.predatorReproductionCost * 0.6;
-      child.lineageId = p.lineageId;
-      child.generation = p.generation + 1;
-      events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
-      newborns.push(child);
-      state.predTraitMemory.push({ ...p.traits });
-      if (state.predTraitMemory.length > 50) state.predTraitMemory.shift();
+      if (mate) {
+        const halfCost = config.predatorReproductionCost / 2;
+        p.energy -= halfCost;
+        mate.energy -= halfCost;
+        p.reproductionCooldown = config.predatorReproductionCooldownTime;
+        mate.reproductionCooldown = config.predatorReproductionCooldownTime;
+        p.offspringCount++;
+        mate.offspringCount++;
+
+        const midX = (p.pos.x + mate.pos.x) / 2;
+        const midY = (p.pos.y + mate.pos.y) / 2;
+        const childX = Math.max(0, Math.min(config.worldWidth - 0.1, midX + rng.range(-10, 10)));
+        const childY = Math.max(0, Math.min(config.worldHeight - 0.1, midY + rng.range(-10, 10)));
+
+        const blendedTraits = {} as PredatorTraits;
+        const keys = Object.keys(p.traits) as (keyof PredatorTraits)[];
+        for (const key of keys) {
+          const t = 0.3 + rng.next() * 0.4;
+          blendedTraits[key] = p.traits[key] * t + mate.traits[key] * (1 - t);
+        }
+
+        const child = createPredator(
+          state.nextId++,
+          childX,
+          childY,
+          rng,
+          config,
+          blendedTraits,
+          p.subspecies
+        );
+        child.energy = config.predatorReproductionCost * 0.6;
+        child.lineageId = p.lineageId;
+        child.generation = Math.max(p.generation, mate.generation) + 1;
+        events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
+        state.predTraitMemory.push({ ...blendedTraits });
+        if (state.predTraitMemory.length > 50) state.predTraitMemory.shift();
+      }
     }
   }
 
