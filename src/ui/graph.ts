@@ -1,7 +1,7 @@
 import type { SimStats } from '../sim/types';
 
 const MAX_POINTS = 300;
-const GRAPH_HEIGHT = 60;
+const GRAPH_HEIGHT = 100;
 const SPARKLINE_HEIGHT = 32;
 
 interface DataPoint {
@@ -134,7 +134,7 @@ export class PopulationGraph {
 
     for (const line of lines) {
       ctx.strokeStyle = line.color;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       for (let i = 0; i < this.data.length; i++) {
         const x = offsetX + i * step;
@@ -143,6 +143,25 @@ export class PopulationGraph {
         else ctx.lineTo(x, y);
       }
       ctx.stroke();
+    }
+
+    // Current value labels at right edge
+    if (this.data.length > 0) {
+      const latest = this.data[this.data.length - 1];
+      const labels: { value: number; color: string; label: string }[] = [
+        { value: latest.herbivores, color: '#55ddaa', label: `H: ${latest.herbivores}` },
+        { value: latest.predators, color: '#cc5544', label: `P: ${latest.predators}` },
+        { value: latest.scavengers, color: '#ccaa44', label: `S: ${latest.scavengers}` },
+      ];
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'right';
+      for (const lb of labels) {
+        const y = h - (lb.value / max) * (h - 4) - 2;
+        const clampedY = Math.max(10, Math.min(h - 4, y));
+        ctx.fillStyle = lb.color;
+        ctx.fillText(lb.label, w - 6, clampedY - 4);
+      }
+      ctx.textAlign = 'left';
     }
   }
 
