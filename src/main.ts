@@ -10,7 +10,7 @@ import { Camera } from './camera';
 import { Tooltip } from './ui/tooltip';
 import { Minimap } from './ui/minimap';
 import { AudioManager } from './audio/audio-manager';
-import { clampAllPanels } from './ui/draggable';
+import { clampAllPanels, makeDraggable } from './ui/draggable';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
@@ -82,6 +82,7 @@ class App {
     this.ui.updateSeed(this.seed);
 
     this.graph = new PopulationGraph(container);
+    makeDraggable(this.graph.getPanel(), this.graph.getHeader());
 
     this.inspector = new CreatureInspector(container);
 

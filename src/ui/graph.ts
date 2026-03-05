@@ -20,38 +20,59 @@ export class PopulationGraph {
   private ctx: CanvasRenderingContext2D;
   private traitCanvas: HTMLCanvasElement;
   private traitCtx: CanvasRenderingContext2D;
+  private panel: HTMLDivElement;
+  private header: HTMLDivElement;
   private data: DataPoint[] = [];
   private lastSampleTime: number = -1;
   private visible: boolean = true;
   showTraits: boolean = false;
 
   constructor(container: HTMLElement) {
+    this.panel = document.createElement('div');
+    this.panel.id = 'population-graph-panel';
+
+    this.header = document.createElement('div');
+    this.header.className = 'graph-header';
+    this.header.textContent = 'Population';
+    this.panel.appendChild(this.header);
+
     this.traitCanvas = document.createElement('canvas');
     this.traitCanvas.id = 'trait-sparklines';
     this.traitCanvas.height = SPARKLINE_HEIGHT;
     this.traitCanvas.style.display = 'none';
-    container.appendChild(this.traitCanvas);
+    this.panel.appendChild(this.traitCanvas);
     this.traitCtx = this.traitCanvas.getContext('2d')!;
 
     this.canvas = document.createElement('canvas');
     this.canvas.id = 'population-graph';
     this.canvas.height = GRAPH_HEIGHT;
-    container.appendChild(this.canvas);
+    this.panel.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d')!;
+
+    container.appendChild(this.panel);
     this.resize();
   }
 
   resize(): void {
-    this.canvas.width = window.innerWidth;
-    this.canvas.style.width = window.innerWidth + 'px';
-    this.traitCanvas.width = window.innerWidth;
-    this.traitCanvas.style.width = window.innerWidth + 'px';
+    const w = this.panel.clientWidth - 12;
+    this.canvas.width = w;
+    this.canvas.style.width = w + 'px';
+    this.traitCanvas.width = w;
+    this.traitCanvas.style.width = w + 'px';
   }
 
   setVisible(v: boolean): void {
     this.visible = v;
-    this.canvas.style.display = v ? 'block' : 'none';
+    this.panel.style.display = v ? '' : 'none';
     this.traitCanvas.style.display = (v && this.showTraits) ? 'block' : 'none';
+  }
+
+  getPanel(): HTMLDivElement {
+    return this.panel;
+  }
+
+  getHeader(): HTMLElement {
+    return this.header;
   }
 
   toggle(): void {
