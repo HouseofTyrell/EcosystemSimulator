@@ -22,7 +22,7 @@ import { getTerrainAt } from './terrain';
 
 /** Density-dependent reproduction probability. Returns true if reproduction allowed. */
 function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
-  const softCap = hardCap * 0.7;
+  const softCap = hardCap * 0.5;
   if (currentPop >= hardCap) return false;
   const ratio = currentPop / softCap;
   const chance = Math.max(0, 1 - ratio * ratio);
@@ -976,6 +976,10 @@ export function updatePredators(
     const sizeCostP = p.traits.size * 0.12;
     const baseMetaP = p.traits.metabolism + p.traits.speed * Math.sqrt(p.traits.speed) * 0.001;
     p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt;
+    // Starvation acceleration: metabolism +50% when energy is low
+    if (p.energy < 30) {
+      p.energy -= baseMetaP * 0.5 * dt;
+    }
 
     // Hunt: try to eat nearest herbivore (satiated predators skip attacking)
     if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 0.8) {
