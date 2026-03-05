@@ -56,6 +56,7 @@ export interface Agent {
   deathCause: 'starved' | 'killed' | 'old_age' | 'disease' | null;
   memory: SpatialMemory | null;
   infected: number; // 0 = healthy, >0 = infected timer
+  birthPos: Vec2;
 }
 
 export interface Herbivore extends Agent {

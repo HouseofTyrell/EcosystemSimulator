@@ -194,6 +194,7 @@ export function createHerbivore(
     deathCause: null,
     memory: createMemory(),
     infected: 0,
+    birthPos: { x, y },
     traits,
   };
 }
@@ -241,6 +242,7 @@ export function createPredator(
     deathCause: null,
     memory: null,
     infected: 0,
+    birthPos: { x, y },
     attackTimer: 0,
     traits,
   };
@@ -288,6 +290,7 @@ export function createScavenger(
     deathCause: null,
     memory: null,
     infected: 0,
+    birthPos: { x, y },
     traits,
   };
 }
