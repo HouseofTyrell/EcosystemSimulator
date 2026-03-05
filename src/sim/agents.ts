@@ -19,6 +19,7 @@ import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
 import { eatPlant, getPlantGradient } from './plants';
 import { getTerrainAt } from './terrain';
+import { clampHerbTraits, clampPredTraits, clampScavTraits } from './subspecies';
 
 /** Density-dependent reproduction probability. Returns true if reproduction allowed. */
 function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
@@ -183,8 +184,10 @@ export function createHerbivore(
   y: number,
   rng: SeededRNG,
   config: SimConfig,
-  parentTraits?: HerbivoreTraits
+  parentTraits?: HerbivoreTraits,
+  subspecies?: number
 ): Herbivore {
+  const sub = subspecies ?? (rng.next() < 0.5 ? 0 : 1);
   const traits: HerbivoreTraits = parentTraits
     ? mutateHerbivoreTraits(parentTraits, rng, config)
     : {
@@ -194,6 +197,8 @@ export function createHerbivore(
         metabolism: rng.range(1.5, 3.5),
         size: rng.range(2, 4),
       };
+
+  clampHerbTraits(traits, sub);
 
   const angle = rng.range(0, Math.PI * 2);
   const spd = traits.speed * 0.3;
@@ -219,6 +224,7 @@ export function createHerbivore(
     deathCause: null,
     memory: createMemory(),
     infected: 0,
+    subspecies: sub,
     birthPos: { x, y },
     traits,
   };
@@ -230,8 +236,10 @@ export function createPredator(
   y: number,
   rng: SeededRNG,
   config: SimConfig,
-  parentTraits?: PredatorTraits
+  parentTraits?: PredatorTraits,
+  subspecies?: number
 ): Predator {
+  const sub = subspecies ?? (rng.next() < 0.5 ? 0 : 1);
   const traits: PredatorTraits = parentTraits
     ? mutatePredatorTraits(parentTraits, rng, config)
     : {
@@ -242,6 +250,8 @@ export function createPredator(
         metabolism: rng.range(2, 4),
         size: rng.range(2.5, 5),
       };
+
+  clampPredTraits(traits, sub);
 
   const angle = rng.range(0, Math.PI * 2);
   const spd = traits.speed * 0.3;
@@ -267,6 +277,7 @@ export function createPredator(
     deathCause: null,
     memory: null,
     infected: 0,
+    subspecies: sub,
     birthPos: { x, y },
     attackTimer: 0,
     traits,
@@ -279,8 +290,10 @@ export function createScavenger(
   y: number,
   rng: SeededRNG,
   config: SimConfig,
-  parentTraits?: ScavengerTraits
+  parentTraits?: ScavengerTraits,
+  subspecies?: number
 ): Scavenger {
+  const sub = subspecies ?? (rng.next() < 0.5 ? 0 : 1);
   const traits: ScavengerTraits = parentTraits
     ? mutateScavengerTraits(parentTraits, rng, config)
     : {
@@ -290,6 +303,8 @@ export function createScavenger(
         metabolism: rng.range(1, 3),
         size: rng.range(1.5, 3.5),
       };
+
+  clampScavTraits(traits, sub);
 
   const angle = rng.range(0, Math.PI * 2);
   const spd = traits.speed * 0.3;
@@ -315,6 +330,7 @@ export function createScavenger(
     deathCause: null,
     memory: null,
     infected: 0,
+    subspecies: sub,
     birthPos: { x, y },
     traits,
   };

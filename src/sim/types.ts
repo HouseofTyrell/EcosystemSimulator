@@ -57,6 +57,7 @@ export interface Agent {
   memory: SpatialMemory | null;
   infected: number; // 0 = healthy, >0 = infected timer
   birthPos: Vec2;
+  subspecies: number;
 }
 
 export interface Herbivore extends Agent {
