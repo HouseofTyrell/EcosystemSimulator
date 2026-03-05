@@ -8,7 +8,7 @@ export function updateEvents(state: SimState, dt: number, rng: SeededRNG): void 
     if (state.activeEvent.remaining <= 0) {
       state.activeEvent = null;
       // Set cooldown after event ends
-      state.eventCooldown = 30 + rng.next() * 60;
+      state.eventCooldown = 20 + rng.next() * 40;
     }
   }
 
