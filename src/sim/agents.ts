@@ -569,7 +569,7 @@ export function steerPredator(
   const hunger = 1 - Math.min(p.energy / 120, 1);
 
   // Satiation: well-fed predators stop hunting
-  const satiationThreshold = state.config.predatorReproductionEnergy * 0.8;
+  const satiationThreshold = state.config.predatorReproductionEnergy * 1.2;
   const isSatiated = p.energy > satiationThreshold;
 
   // 1) Attraction to herbivores (scored targeting, scaled by hunger)
@@ -992,13 +992,9 @@ export function updatePredators(
     const sizeCostP = p.traits.size * 0.12;
     const baseMetaP = p.traits.metabolism + p.traits.speed * Math.sqrt(p.traits.speed) * 0.001;
     p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt;
-    // Starvation acceleration: metabolism +50% when energy is low
-    if (p.energy < 30) {
-      p.energy -= baseMetaP * 0.5 * dt;
-    }
 
     // Hunt: try to eat nearest herbivore (satiated predators skip attacking)
-    if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 0.8) {
+    if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 1.2) {
       const herbBuf: Herbivore[] = [];
       const attackRange = p.traits.size * 3 + 8;
       herbHash.query(p.pos, attackRange, herbBuf);
@@ -1017,7 +1013,17 @@ export function updatePredators(
             h.alive = false;
             h.deathCause = 'killed';
             events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
-            p.energy += config.predatorAttackEnergy;
+            // Pack Hunter bonus: 1.5x energy when grouped
+            let killEnergy = config.predatorAttackEnergy;
+            if (p.subspecies === 1) {
+              const nearPreds: Predator[] = [];
+              predHash.query(p.pos, 80, nearPreds);
+              if (nearPreds.length >= 2) killEnergy *= 1.5;
+            } else {
+              // Stalker bonus: 10% solo kill energy
+              killEnergy *= 1.1;
+            }
+            p.energy += killEnergy;
           } else {
             // Failed attack — still costs energy
             p.energy -= config.predatorAttackEnergy * 0.3;

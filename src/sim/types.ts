@@ -251,7 +251,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   predatorReproductionEnergy: 100,
   predatorReproductionCost: 60,
   predatorReproductionCooldownTime: 15,
-  predatorAttackEnergy: 40,
+  predatorAttackEnergy: 50,
   predatorMaxAge: 100,
 
   initialScavengers: 5,
