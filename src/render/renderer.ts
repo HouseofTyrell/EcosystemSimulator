@@ -6,6 +6,7 @@ import type { SimState } from '../sim/types';
 import type { CameraState } from '../camera';
 import { SpritePool } from './sprite-pool';
 import { generateTextures, type GeneratedTextures } from './textures';
+import { HERB_SUBSPECIES, PRED_SUBSPECIES, SCAV_SUBSPECIES } from '../sim/subspecies';
 
 export interface RendererOptions {
   container: HTMLElement;
@@ -514,7 +515,7 @@ export class Renderer {
 
       sprite.x = h.pos.x * scaleX;
       sprite.y = h.pos.y * scaleY;
-      const lineageTintH = hueShiftByLineage(0x5dd880, h.lineageId, 25);
+      const lineageTintH = hueShiftByLineage(HERB_SUBSPECIES[h.subspecies]?.hueBase || 0x5dd880, h.lineageId, HERB_SUBSPECIES[h.subspecies]?.hueRange || 20);
       sprite.tint = lineageTintH;
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
@@ -592,7 +593,7 @@ export class Renderer {
 
       sprite.x = p.pos.x * scaleX;
       sprite.y = p.pos.y * scaleY;
-      const lineageTintP = hueShiftByLineage(0xe87744, p.lineageId, 25);
+      const lineageTintP = hueShiftByLineage(PRED_SUBSPECIES[p.subspecies]?.hueBase || 0xe87744, p.lineageId, PRED_SUBSPECIES[p.subspecies]?.hueRange || 20);
       sprite.tint = lineageTintP;
       sprite.rotation = Math.atan2(p.vel.y, p.vel.x);
 
@@ -671,7 +672,7 @@ export class Renderer {
       const sprite = this.scavPool.acquire();
       sprite.x = s.pos.x * scaleX;
       sprite.y = s.pos.y * scaleY;
-      const lineageTintS = hueShiftByLineage(0xd4a840, s.lineageId, 25);
+      const lineageTintS = hueShiftByLineage(SCAV_SUBSPECIES[s.subspecies]?.hueBase || 0xd4a840, s.lineageId, SCAV_SUBSPECIES[s.subspecies]?.hueRange || 20);
       sprite.tint = lineageTintS;
       sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
 
