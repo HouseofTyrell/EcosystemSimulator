@@ -527,6 +527,40 @@ export function steerHerbivore(
     }
   }
 
+  // Mate seeking: steer toward nearest eligible mate when ready to reproduce
+  const herbStage = h.age / h.maxAge;
+  if (
+    h.energy > state.config.herbivoreReproductionEnergy &&
+    h.reproductionCooldown <= 0 &&
+    herbStage >= 0.15
+  ) {
+    const mateScan: Herbivore[] = [];
+    herbHash.query(h.pos, 120, mateScan);
+    let closestMate: Herbivore | null = null;
+    let closestDist = Infinity;
+    for (let mi = 0; mi < mateScan.length; mi++) {
+      const m = mateScan[mi];
+      if (m.id === h.id || m.subspecies !== h.subspecies) continue;
+      if (m.energy < state.config.herbivoreReproductionEnergy * 0.5) continue;
+      if (m.reproductionCooldown > 0) continue;
+      const md = herbHash.wrappedDelta(h.pos, m.pos);
+      const d2 = md.x * md.x + md.y * md.y;
+      if (d2 < closestDist) {
+        closestDist = d2;
+        closestMate = m;
+      }
+    }
+    if (closestMate) {
+      const md = herbHash.wrappedDelta(h.pos, closestMate.pos);
+      const d = Math.sqrt(md.x * md.x + md.y * md.y);
+      if (d > 1) {
+        fx += (md.x / d) * 25;
+        fy += (md.y / d) * 25;
+      }
+      h.behavior = 'seeking mate';
+    }
+  }
+
   // 5) Wander noise
   fx += rng.gaussian(0, 12);
   fy += rng.gaussian(0, 12);
@@ -672,6 +706,40 @@ export function steerPredator(
     }
   }
 
+  // Mate seeking
+  const predStage = p.age / p.maxAge;
+  if (
+    p.energy > state.config.predatorReproductionEnergy &&
+    p.reproductionCooldown <= 0 &&
+    predStage >= 0.15
+  ) {
+    const mateScan: Predator[] = [];
+    predHash.query(p.pos, 120, mateScan);
+    let closestMate: Predator | null = null;
+    let closestDist = Infinity;
+    for (let mi = 0; mi < mateScan.length; mi++) {
+      const m = mateScan[mi];
+      if (m.id === p.id || m.subspecies !== p.subspecies) continue;
+      if (m.energy < state.config.predatorReproductionEnergy * 0.5) continue;
+      if (m.reproductionCooldown > 0) continue;
+      const md = predHash.wrappedDelta(p.pos, m.pos);
+      const d2 = md.x * md.x + md.y * md.y;
+      if (d2 < closestDist) {
+        closestDist = d2;
+        closestMate = m;
+      }
+    }
+    if (closestMate) {
+      const md = predHash.wrappedDelta(p.pos, closestMate.pos);
+      const d = Math.sqrt(md.x * md.x + md.y * md.y);
+      if (d > 1) {
+        fx += (md.x / d) * 20;
+        fy += (md.y / d) * 20;
+      }
+      p.behavior = 'seeking mate';
+    }
+  }
+
   // 4) Wander noise
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
@@ -768,6 +836,40 @@ export function steerScavenger(
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       fx -= (dx / d) * 150;
       fy -= (dy / d) * 150;
+    }
+  }
+
+  // Mate seeking
+  const scavStage = s.age / s.maxAge;
+  if (
+    s.energy > state.config.scavengerReproductionEnergy &&
+    s.reproductionCooldown <= 0 &&
+    scavStage >= 0.15
+  ) {
+    const mateScan: Scavenger[] = [];
+    scavHash.query(s.pos, 120, mateScan);
+    let closestMate: Scavenger | null = null;
+    let closestDist = Infinity;
+    for (let mi = 0; mi < mateScan.length; mi++) {
+      const m = mateScan[mi];
+      if (m.id === s.id || m.subspecies !== s.subspecies) continue;
+      if (m.energy < state.config.scavengerReproductionEnergy * 0.5) continue;
+      if (m.reproductionCooldown > 0) continue;
+      const md = scavHash.wrappedDelta(s.pos, m.pos);
+      const d2 = md.x * md.x + md.y * md.y;
+      if (d2 < closestDist) {
+        closestDist = d2;
+        closestMate = m;
+      }
+    }
+    if (closestMate) {
+      const md = scavHash.wrappedDelta(s.pos, closestMate.pos);
+      const d = Math.sqrt(md.x * md.x + md.y * md.y);
+      if (d > 1) {
+        fx += (md.x / d) * 20;
+        fy += (md.y / d) * 20;
+      }
+      s.behavior = 'seeking mate';
     }
   }
 
