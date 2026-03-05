@@ -592,6 +592,32 @@ export function steerPredator(
         fy += (bestDelta.y / bestDist) * strength;
       }
     }
+  } else {
+    // Satiated: patrol near nearest herbivore cluster at safe distance
+    const patrolBuf: Herbivore[] = [];
+    herbHash.query(p.pos, vision * 1.5, patrolBuf);
+    if (patrolBuf.length > 0) {
+      // Find center of nearest herbivore group
+      let cx = 0, cy = 0;
+      for (let i = 0; i < patrolBuf.length; i++) {
+        const delta = herbHash.wrappedDelta(p.pos, patrolBuf[i].pos);
+        cx += delta.x;
+        cy += delta.y;
+      }
+      cx /= patrolBuf.length;
+      cy /= patrolBuf.length;
+      const d = Math.sqrt(cx * cx + cy * cy);
+      if (d > 1) {
+        // Orbit at ~80% of vision range
+        const idealDist = vision * 0.8;
+        const orbitStr = d < idealDist ? -8 : 12;
+        fx += (cx / d) * orbitStr;
+        fy += (cy / d) * orbitStr;
+        // Add perpendicular drift for orbiting motion
+        fx += (-cy / d) * 6;
+        fy += (cx / d) * 6;
+      }
+    }
   }
 
   // 2) Separation from other predators
