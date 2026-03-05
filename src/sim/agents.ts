@@ -449,23 +449,45 @@ export function steerHerbivore(
     }
   }
 
-  // 3c) Cohesion: steer toward center of nearby herbivores
+  // 3c) Cohesion: lineage-aware — same-lineage pull stronger, forming distinct herds
   if (herbBuf.length > 1) {
-    let cx = 0, cy = 0;
-    let count = 0;
+    let sameX = 0, sameY = 0, sameCount = 0;
+    let otherX = 0, otherY = 0, otherCount = 0;
     for (let i = 0; i < herbBuf.length; i++) {
       if (herbBuf[i].id === h.id) continue;
       const delta = herbHash.wrappedDelta(h.pos, herbBuf[i].pos);
-      cx += delta.x;
-      cy += delta.y;
-      count++;
+      if (herbBuf[i].lineageId === h.lineageId) {
+        sameX += delta.x;
+        sameY += delta.y;
+        sameCount++;
+      } else {
+        otherX += delta.x;
+        otherY += delta.y;
+        otherCount++;
+      }
     }
-    if (count > 0) {
-      cx /= count;
-      cy /= count;
-      fx += cx * 0.12;
-      fy += cy * 0.12;
+    if (sameCount > 0) {
+      sameX /= sameCount;
+      sameY /= sameCount;
+      fx += sameX * 0.25;
+      fy += sameY * 0.25;
     }
+    if (otherCount > 0) {
+      otherX /= otherCount;
+      otherY /= otherCount;
+      fx += otherX * 0.04;
+      fy += otherY * 0.04;
+    }
+  }
+
+  // Home drift: gentle pull toward birthplace when far away
+  const homeDx = h.birthPos.x - h.pos.x;
+  const homeDy = h.birthPos.y - h.pos.y;
+  const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy);
+  if (homeDist > 400) {
+    const homeStr = 5 * Math.min((homeDist - 400) / 400, 1);
+    fx += (homeDx / homeDist) * homeStr;
+    fy += (homeDy / homeDist) * homeStr;
   }
 
   // 4) Water avoidance: check terrain ahead and to sides
