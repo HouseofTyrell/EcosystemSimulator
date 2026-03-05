@@ -19,10 +19,10 @@ export class Camera {
     this.state = {
       x: worldW / 2,
       y: worldH / 2,
-      zoom: 1,
+      zoom: 0.7,
       targetX: worldW / 2,
       targetY: worldH / 2,
-      targetZoom: 1,
+      targetZoom: 0.7,
       following: null,
     };
   }
@@ -64,7 +64,7 @@ export class Camera {
   resetView(): void {
     this.state.targetX = this.worldW / 2;
     this.state.targetY = this.worldH / 2;
-    this.state.targetZoom = 1;
+    this.state.targetZoom = 0.7;
     this.state.following = null;
   }
 
