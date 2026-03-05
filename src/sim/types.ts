@@ -175,6 +175,7 @@ export interface SimState {
   predTraitMemory: PredatorTraits[];
   scavTraitMemory: ScavengerTraits[];
   reintroductionTime: number;
+  recentDeaths: Map<number, string>; // id -> deathCause for inspector
 }
 
 export interface SimStats {

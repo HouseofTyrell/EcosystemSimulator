@@ -97,6 +97,7 @@ export class Simulation {
       predTraitMemory: [],
       scavTraitMemory: [],
       reintroductionTime: -Infinity,
+      recentDeaths: new Map(),
     };
 
     this.spawnQueues = this.createSpawnQueues(fullConfig);
@@ -350,6 +351,12 @@ export class Simulation {
         });
       }
     }
+
+    // Capture death causes for inspector before removing
+    state.recentDeaths.clear();
+    for (const h of state.herbivores) if (!h.alive && h.deathCause) state.recentDeaths.set(h.id, h.deathCause);
+    for (const p of state.predators) if (!p.alive && p.deathCause) state.recentDeaths.set(p.id, p.deathCause);
+    for (const s of state.scavengers) if (!s.alive && s.deathCause) state.recentDeaths.set(s.id, s.deathCause);
 
     // Remove dead, add newborns
     state.herbivores = state.herbivores.filter(h => h.alive);
@@ -622,6 +629,7 @@ export class Simulation {
       predTraitMemory: [],
       scavTraitMemory: [],
       reintroductionTime: -Infinity,
+      recentDeaths: new Map(),
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;

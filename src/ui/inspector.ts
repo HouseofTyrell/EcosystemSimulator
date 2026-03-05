@@ -99,7 +99,12 @@ export class CreatureInspector {
           pin.lastDeathCause = creature.deathCause;
         }
       } else {
-        if (pin.deadSince === null) pin.deadSince = simTime;
+        if (pin.deadSince === null) {
+          pin.deadSince = simTime;
+          // Capture death cause from recentDeaths map
+          const cause = state.recentDeaths?.get(pin.id);
+          if (cause) pin.lastDeathCause = cause;
+        }
         if (simTime - pin.deadSince! > 3) {
           this.pinned.splice(i, 1);
           this.energyHistory.delete(pin.id);
