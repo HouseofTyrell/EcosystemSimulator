@@ -81,7 +81,7 @@ export class EventFeed {
     let html = '';
     for (const entry of this.entries) {
       const age = simTime - entry.addedAtSimTime;
-      const alpha = Math.max(0.3, 1 - age / entry.duration);
+      const alpha = Math.max(0.4, 1 - age / entry.duration);
       const criticalClass = entry.critical ? ' critical' : '';
       const borderStyle = entry.critical ? ` border-left-color:${entry.borderColor};` : '';
       html += `<div class="feed-entry${criticalClass}" style="opacity:${alpha};${borderStyle}">

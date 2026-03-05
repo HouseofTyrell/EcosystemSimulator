@@ -46,8 +46,10 @@ canvas {
   font-size: 11px;
   line-height: 1.4;
   color: #778899;
-  background: rgba(10, 12, 20, 0.82);
-  padding: 10px 14px;
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 12px 16px;
   border-radius: 6px;
   border: 1px solid rgba(34, 51, 68, 0.5);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
@@ -100,7 +102,7 @@ canvas {
 
 #stats .sub-detail {
   color: #667788;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 #stats .stats-footer {
@@ -123,6 +125,8 @@ canvas {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(10, 12, 20, 0.92);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
@@ -162,7 +166,9 @@ canvas {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(10, 12, 20, 0.82);
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 6px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
@@ -324,7 +330,9 @@ canvas {
   bottom: 16px;
   right: 16px;
   width: 350px;
-  background: rgba(10, 12, 20, 0.82);
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 6px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
@@ -338,8 +346,8 @@ canvas {
   justify-content: space-between;
   align-items: center;
   cursor: grab;
-  color: #778899;
-  font-size: 10px;
+  color: #8899aa;
+  font-size: 11px;
   letter-spacing: 0.3px;
   margin-bottom: 4px;
   user-select: none;
@@ -348,18 +356,18 @@ canvas {
 .graph-legend {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 9px;
-  color: #556677;
+  gap: 6px;
+  font-size: 10px;
+  color: #667788;
   letter-spacing: 0;
 }
 
 .legend-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  margin-left: 6px;
+  margin-left: 8px;
 }
 
 #population-graph {
@@ -389,7 +397,9 @@ canvas {
 }
 
 .inspector-card {
-  background: rgba(10, 12, 20, 0.82);
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-left: 2px solid var(--creature-color, rgba(34, 51, 68, 0.5));
   border-radius: 6px;
@@ -423,7 +433,7 @@ canvas {
 }
 
 .inspector-energy {
-  height: 3px;
+  height: 4px;
   background: #1a1a2a;
   border-radius: 2px;
   margin-bottom: 4px;
@@ -474,15 +484,17 @@ canvas {
 /* Event Feed */
 #event-feed {
   position: absolute;
-  bottom: 156px;
+  bottom: 162px;
   right: 16px;
-  width: min(220px, calc(100vw - 260px));
+  width: min(260px, calc(100vw - 260px));
   max-height: calc(100vh - 300px);
   overflow-y: auto;
   pointer-events: auto;
-  font-size: 10px;
-  background: rgba(10, 12, 20, 0.82);
-  padding: 6px 10px;
+  font-size: 12px;
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid rgba(34, 51, 68, 0.5);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
@@ -493,8 +505,7 @@ canvas {
 }
 
 .feed-entry {
-  line-height: 1.7;
-  white-space: nowrap;
+  line-height: 1.6;
   color: #8899aa;
 }
 
@@ -504,8 +515,9 @@ canvas {
 }
 
 .feed-time {
-  color: #556677;
+  color: #667788;
   margin-right: 6px;
+  font-size: 11px;
 }
 
 /* Hover tooltip */

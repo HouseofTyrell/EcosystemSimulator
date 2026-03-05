@@ -33,7 +33,7 @@ export class PopulationGraph {
 
     this.header = document.createElement('div');
     this.header.className = 'graph-header';
-    this.header.innerHTML = `<span>Population</span><span class="graph-legend"><span class="legend-dot" style="background:#55ddaa"></span>H <span class="legend-dot" style="background:#cc5544"></span>P <span class="legend-dot" style="background:#ccaa44"></span>S</span>`;
+    this.header.innerHTML = `<span>Population</span><span class="graph-legend"><span class="legend-dot" style="background:#55ddaa"></span>Herb <span class="legend-dot" style="background:#cc5544"></span>Pred <span class="legend-dot" style="background:#ccaa44"></span>Scav</span>`;
     this.panel.appendChild(this.header);
 
     this.traitCanvas = document.createElement('canvas');
@@ -155,6 +155,8 @@ export class PopulationGraph {
     for (const line of lines) {
       ctx.strokeStyle = line.color;
       ctx.lineWidth = 2;
+      ctx.shadowColor = line.color;
+      ctx.shadowBlur = 3;
       ctx.beginPath();
       for (let i = 0; i < this.data.length; i++) {
         const x = offsetX + i * step;
@@ -164,22 +166,43 @@ export class PopulationGraph {
       }
       ctx.stroke();
     }
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
 
-    // Current value labels at right edge
+    // Current value labels at right edge with collision avoidance
     if (this.data.length > 0) {
       const latest = this.data[this.data.length - 1];
-      const labels: { value: number; color: string; label: string }[] = [
-        { value: latest.herbivores, color: '#55ddaa', label: `H: ${latest.herbivores}` },
-        { value: latest.predators, color: '#cc5544', label: `P: ${latest.predators}` },
-        { value: latest.scavengers, color: '#ccaa44', label: `S: ${latest.scavengers}` },
+      const labels: { value: number; color: string; label: string; rawY: number }[] = [
+        { value: latest.herbivores, color: '#55ddaa', label: `H: ${latest.herbivores}`, rawY: 0 },
+        { value: latest.predators, color: '#cc5544', label: `P: ${latest.predators}`, rawY: 0 },
+        { value: latest.scavengers, color: '#ccaa44', label: `S: ${latest.scavengers}`, rawY: 0 },
       ];
-      ctx.font = 'bold 10px monospace';
-      ctx.textAlign = 'right';
+      // Calculate raw Y positions
       for (const lb of labels) {
         const y = h - (lb.value / max) * (h - 4) - 2;
-        const clampedY = Math.max(10, Math.min(h - 4, y));
+        lb.rawY = Math.max(12, Math.min(h - 4, y)) - 4;
+      }
+      // Sort by Y position (top to bottom) and space out overlaps
+      labels.sort((a, b) => a.rawY - b.rawY);
+      const minGap = 14;
+      for (let i = 1; i < labels.length; i++) {
+        if (labels[i].rawY - labels[i - 1].rawY < minGap) {
+          labels[i].rawY = labels[i - 1].rawY + minGap;
+        }
+      }
+      // Clamp back into bounds
+      for (const lb of labels) {
+        lb.rawY = Math.max(10, Math.min(h - 2, lb.rawY));
+      }
+
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'right';
+      for (const lb of labels) {
+        // Dark shadow for readability
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillText(lb.label, w - 5, lb.rawY + 1);
         ctx.fillStyle = lb.color;
-        ctx.fillText(lb.label, w - 6, clampedY - 4);
+        ctx.fillText(lb.label, w - 6, lb.rawY);
       }
       ctx.textAlign = 'left';
     }
