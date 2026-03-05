@@ -124,8 +124,12 @@ canvas {
 }
 
 #settings.collapsed {
-  padding: 8px 12px;
+  padding: 6px 14px;
   min-width: auto;
+  border-radius: 4px;
+  background: rgba(10, 10, 15, 0.75);
+  border: 1px solid #334455;
+  cursor: pointer;
 }
 
 #settings.collapsed .settings-body {
@@ -146,6 +150,9 @@ canvas {
 
 #settings.collapsed .settings-header {
   margin-bottom: 0;
+  color: #8899aa;
+  font-size: 10px;
+  gap: 6px;
 }
 
 #settings .setting-row {
