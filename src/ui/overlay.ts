@@ -361,26 +361,22 @@ export class UIOverlay {
   }
 
   updateStats(stats: SimStats, simTime: number, fps?: number): void {
+    const eventText = stats.activeEventName !== 'none'
+      ? `<div><span class="label">Event:</span> <span class="value event-active">${stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1)}</span></div>`
+      : '';
     this.statsEl.innerHTML = `
-      ${fps !== undefined ? `<div><span class="label">FPS:</span> <span class="value">${fps}</span></div>` : ''}
-      <div><span class="label">Time:</span> <span class="value">${this.formatTime(simTime)}</span></div>
-      <div><span class="label">Season:</span> <span class="season">${stats.seasonName}</span></div>
-      <div><span class="label">Period:</span> <span class="value">${stats.timeOfDay}</span></div>
-      <div><span class="label">Weather:</span> <span class="value">${stats.weatherName}</span></div>
-      <div><span class="label">Event:</span> <span class="value">${stats.activeEventName !== 'none' ? stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1) : '\u2014'}</span></div>
-      <div><span class="label">Plants:</span> <span class="plant">${stats.plantDensity.toFixed(2)}</span></div>
-      <div><span class="label">Herbivores:</span> <span class="herbivore">${stats.herbivoreCount}</span> <span style="color:#44ccaa;font-size:9px">(G:${stats.grazerCount} F:${stats.foragerCount})</span></div>
-      <div><span class="label">Predators:</span> <span class="predator">${stats.predatorCount}</span> <span style="color:#ee6644;font-size:9px">(S:${stats.stalkerCount} P:${stats.packHunterCount})</span></div>
-      <div><span class="label">Scavengers:</span> <span class="value" style="color: #ccaa44">${stats.scavengerCount}</span> <span style="color:#ccaa44;font-size:9px">(V:${stats.vultureCount} B:${stats.beetleCount})</span></div>
-      <div><span class="label">Max Gen:</span> <span class="value">${stats.maxGeneration}</span></div>
-      <div style="margin-top: 6px;">
-        <span class="label">Herb avg:</span>
-        <span class="herbivore">spd ${stats.avgHerbivoreSpeed.toFixed(0)} size ${stats.avgHerbivoreSize.toFixed(1)} vis ${stats.avgHerbivoreVision.toFixed(0)}</span>
+      <div class="stats-row-top">
+        <span class="value">${this.formatTime(simTime)}</span>
+        <span class="season">${stats.seasonName}</span>
+        ${fps !== undefined ? `<span class="fps-value">${fps} fps</span>` : ''}
       </div>
-      <div>
-        <span class="label">Pred avg:</span>
-        <span class="predator">spd ${stats.avgPredatorSpeed.toFixed(0)} size ${stats.avgPredatorSize.toFixed(1)} vis ${stats.avgPredatorVision.toFixed(0)}</span>
+      ${eventText}
+      <div class="stats-populations">
+        <div><span class="herbivore">${stats.herbivoreCount}</span> <span class="label">herb</span></div>
+        <div><span class="predator">${stats.predatorCount}</span> <span class="label">pred</span></div>
+        <div><span class="scavenger-count">${stats.scavengerCount}</span> <span class="label">scav</span></div>
       </div>
+      <div class="stats-gen"><span class="label">gen</span> <span class="value">${stats.maxGeneration}</span></div>
     `;
   }
 

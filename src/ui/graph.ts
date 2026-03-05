@@ -33,7 +33,7 @@ export class PopulationGraph {
 
     this.header = document.createElement('div');
     this.header.className = 'graph-header';
-    this.header.textContent = 'Population';
+    this.header.innerHTML = `<span>Population</span><span class="graph-legend"><span class="legend-dot" style="background:#55ddaa"></span>H <span class="legend-dot" style="background:#cc5544"></span>P <span class="legend-dot" style="background:#ccaa44"></span>S</span>`;
     this.panel.appendChild(this.header);
 
     this.traitCanvas = document.createElement('canvas');
