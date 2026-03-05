@@ -29,6 +29,31 @@ function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG)
   return rng.next() < chance;
 }
 
+/** Soft boundary repulsion. Returns steering force pushing away from edges. */
+function boundaryRepulsion(pos: Vec2, config: SimConfig): Vec2 {
+  const margin = 120;
+  const strength = 200;
+  let fx = 0, fy = 0;
+
+  if (pos.x < margin) {
+    const t = 1 - pos.x / margin;
+    fx += strength * t * t;
+  } else if (pos.x > config.worldWidth - margin) {
+    const t = 1 - (config.worldWidth - pos.x) / margin;
+    fx -= strength * t * t;
+  }
+
+  if (pos.y < margin) {
+    const t = 1 - pos.y / margin;
+    fy += strength * t * t;
+  } else if (pos.y > config.worldHeight - margin) {
+    const t = 1 - (config.worldHeight - pos.y) / margin;
+    fy -= strength * t * t;
+  }
+
+  return { x: fx, y: fy };
+}
+
 function getLifeStage(age: number, maxAge: number): 'baby' | 'adult' | 'elder' {
   const ratio = age / maxAge;
   if (ratio < 0.15) return 'baby';
@@ -475,6 +500,11 @@ export function steerHerbivore(
     fy += memSteer.y;
   }
 
+  // Soft boundary repulsion
+  const bnd = boundaryRepulsion(h.pos, state.config);
+  fx += bnd.x;
+  fy += bnd.y;
+
   // Set behavior state
   if (fleeing) h.behavior = 'fleeing';
   else if (hunger > 0.7) h.behavior = 'starving';
@@ -582,6 +612,10 @@ export function steerPredator(
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 
+  const bnd = boundaryRepulsion(p.pos, state.config);
+  fx += bnd.x;
+  fy += bnd.y;
+
   // Set behavior state
   const hasTarget = bestDelta !== null;
   if (hasTarget && bestDist < 30) p.behavior = 'attacking';
@@ -676,6 +710,10 @@ export function steerScavenger(
   // 4) Wander noise
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
+
+  const bnd = boundaryRepulsion(s.pos, state.config);
+  fx += bnd.x;
+  fy += bnd.y;
 
   // Set behavior state
   const hasCorpse = closestCorpseDelta !== null;
@@ -789,10 +827,10 @@ export function updateHerbivores(
       h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (h.pos.x < 0) { h.pos.x = 0; h.vel.x *= -0.5; }
-      else if (h.pos.x >= config.worldWidth) { h.pos.x = config.worldWidth - 0.1; h.vel.x *= -0.5; }
-      if (h.pos.y < 0) { h.pos.y = 0; h.vel.y *= -0.5; }
-      else if (h.pos.y >= config.worldHeight) { h.pos.y = config.worldHeight - 0.1; h.vel.y *= -0.5; }
+      if (h.pos.x < 0) h.pos.x = 0;
+      else if (h.pos.x >= config.worldWidth) h.pos.x = config.worldWidth - 0.1;
+      if (h.pos.y < 0) h.pos.y = 0;
+      else if (h.pos.y >= config.worldHeight) h.pos.y = config.worldHeight - 0.1;
     }
 
     // Disease spread and damage
@@ -956,10 +994,10 @@ export function updatePredators(
       p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (p.pos.x < 0) { p.pos.x = 0; p.vel.x *= -0.5; }
-      else if (p.pos.x >= config.worldWidth) { p.pos.x = config.worldWidth - 0.1; p.vel.x *= -0.5; }
-      if (p.pos.y < 0) { p.pos.y = 0; p.vel.y *= -0.5; }
-      else if (p.pos.y >= config.worldHeight) { p.pos.y = config.worldHeight - 0.1; p.vel.y *= -0.5; }
+      if (p.pos.x < 0) p.pos.x = 0;
+      else if (p.pos.x >= config.worldWidth) p.pos.x = config.worldWidth - 0.1;
+      if (p.pos.y < 0) p.pos.y = 0;
+      else if (p.pos.y >= config.worldHeight) p.pos.y = config.worldHeight - 0.1;
     }
 
     // Disease spread and damage
@@ -1109,10 +1147,10 @@ export function updateScavengers(
       s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (s.pos.x < 0) { s.pos.x = 0; s.vel.x *= -0.5; }
-      else if (s.pos.x >= config.worldWidth) { s.pos.x = config.worldWidth - 0.1; s.vel.x *= -0.5; }
-      if (s.pos.y < 0) { s.pos.y = 0; s.vel.y *= -0.5; }
-      else if (s.pos.y >= config.worldHeight) { s.pos.y = config.worldHeight - 0.1; s.vel.y *= -0.5; }
+      if (s.pos.x < 0) s.pos.x = 0;
+      else if (s.pos.x >= config.worldWidth) s.pos.x = config.worldWidth - 0.1;
+      if (s.pos.y < 0) s.pos.y = 0;
+      else if (s.pos.y >= config.worldHeight) s.pos.y = config.worldHeight - 0.1;
     }
 
     // Disease spread and damage
