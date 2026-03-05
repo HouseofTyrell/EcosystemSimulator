@@ -132,7 +132,7 @@ export class PopulationGraph {
 
     let max = 1;
     for (const d of this.data) {
-      max = Math.max(max, d.herbivores, d.predators, d.scavengers, d.plantDensity);
+      max = Math.max(max, d.herbivores, d.predators, d.scavengers);
     }
     max *= 1.1;
 
@@ -144,7 +144,6 @@ export class PopulationGraph {
     ctx.stroke();
 
     const lines: { key: keyof DataPoint; color: string }[] = [
-      { key: 'plantDensity', color: '#336633' },
       { key: 'scavengers', color: '#ccaa44' },
       { key: 'predators', color: '#cc5544' },
       { key: 'herbivores', color: '#55ddaa' },

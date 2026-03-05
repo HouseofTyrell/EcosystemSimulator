@@ -361,22 +361,26 @@ export class UIOverlay {
   }
 
   updateStats(stats: SimStats, simTime: number, fps?: number): void {
-    const eventText = stats.activeEventName !== 'none'
-      ? `<div><span class="label">Event:</span> <span class="value event-active">${stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1)}</span></div>`
+    const eventName = stats.activeEventName !== 'none'
+      ? stats.activeEventName.charAt(0).toUpperCase() + stats.activeEventName.slice(1)
       : '';
     this.statsEl.innerHTML = `
       <div class="stats-row-top">
         <span class="value">${this.formatTime(simTime)}</span>
         <span class="season">${stats.seasonName}</span>
+        <span class="value">${stats.weatherName !== 'Clear' ? stats.weatherName : ''}</span>
         ${fps !== undefined ? `<span class="fps-value">${fps} fps</span>` : ''}
       </div>
-      ${eventText}
+      ${eventName ? `<div class="stats-event">${eventName}</div>` : ''}
       <div class="stats-populations">
-        <div><span class="herbivore">${stats.herbivoreCount}</span> <span class="label">herb</span></div>
-        <div><span class="predator">${stats.predatorCount}</span> <span class="label">pred</span></div>
-        <div><span class="scavenger-count">${stats.scavengerCount}</span> <span class="label">scav</span></div>
+        <div><span class="herbivore">${stats.herbivoreCount}</span> <span class="label">herb</span> <span class="sub-detail">${stats.grazerCount}g ${stats.foragerCount}f</span></div>
+        <div><span class="predator">${stats.predatorCount}</span> <span class="label">pred</span> <span class="sub-detail">${stats.stalkerCount}s ${stats.packHunterCount}p</span></div>
+        <div><span class="scavenger-count">${stats.scavengerCount}</span> <span class="label">scav</span> <span class="sub-detail">${stats.vultureCount}v ${stats.beetleCount}b</span></div>
       </div>
-      <div class="stats-gen"><span class="label">gen</span> <span class="value">${stats.maxGeneration}</span></div>
+      <div class="stats-footer">
+        <span class="label">gen ${stats.maxGeneration}</span>
+        <span class="plant">${stats.plantDensity.toFixed(2)}</span> <span class="label">plants</span>
+      </div>
     `;
   }
 

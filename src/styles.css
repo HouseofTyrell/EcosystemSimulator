@@ -51,6 +51,7 @@ canvas {
   border-radius: 6px;
   border: 1px solid rgba(34, 51, 68, 0.5);
   min-width: 120px;
+  pointer-events: auto;
 }
 
 #stats .stats-row-top {
@@ -77,8 +78,11 @@ canvas {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-#stats .value.event-active {
+#stats .stats-event {
   color: #ccaa44;
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 #stats .stats-populations {
@@ -89,8 +93,16 @@ canvas {
   font-size: 12px;
 }
 
-#stats .stats-gen {
+#stats .sub-detail {
+  color: #445566;
+  font-size: 9px;
+}
+
+#stats .stats-footer {
   font-size: 10px;
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 #stats .herbivore { color: #55ddaa; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
@@ -150,8 +162,7 @@ canvas {
   padding: 12px 16px;
   font-size: 11px;
   pointer-events: auto;
-  min-width: 200px;
-  max-width: 280px;
+  width: min(240px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
@@ -190,25 +201,30 @@ canvas {
 
 #settings .setting-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  gap: 6px;
 }
 
 #settings .setting-row label {
   color: #556677;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 10px;
 }
 
 #settings .setting-row input[type="range"] {
-  width: 80px;
+  flex: 1;
+  min-width: 50px;
   accent-color: #446688;
 }
 
 #settings .setting-row .val {
   color: #7788aa;
-  min-width: 30px;
+  min-width: 28px;
   text-align: right;
   font-size: 10px;
+  flex: 0 0 auto;
 }
 
 .settings-section-label {
@@ -349,10 +365,10 @@ canvas {
 /* Creature Inspector */
 #inspector {
   position: absolute;
-  top: min(320px, calc(100vh - 300px));
+  top: 120px;
   left: 16px;
   width: 200px;
-  max-height: calc(100vh - 400px);
+  max-height: calc(100vh - 180px);
   overflow-y: auto;
   pointer-events: auto;
   display: flex;
