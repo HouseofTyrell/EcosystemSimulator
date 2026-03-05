@@ -215,7 +215,7 @@ class App {
     }
 
     if (!this.paused) {
-      this.accumulator += elapsed * this.speed;
+      this.accumulator += elapsed * this.speed * 0.5;
 
       // Fixed timestep sim updates
       let steps = 0;
