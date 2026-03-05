@@ -924,7 +924,7 @@ export function updateHerbivores(
       continue;
     }
 
-    // Reproduction
+    // Reproduction: two-parent mating system
     if (
       h.energy > config.herbivoreReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
       h.reproductionCooldown <= 0 &&
@@ -932,32 +932,63 @@ export function updateHerbivores(
       state.herbivores.length + newborns.length < config.maxHerbivores &&
       densityReproChance(state.herbivores.length, config.maxHerbivores, rng)
     ) {
-      h.energy -= config.herbivoreReproductionCost;
-      h.reproductionCooldown = config.herbivoreReproductionCooldownTime;
+      // Find nearby mate: same subspecies, energy > 50% threshold, cooldown ready, not baby
+      const mateBuf: Herbivore[] = [];
+      herbHash.query(h.pos, 60, mateBuf);
+      let mate: Herbivore | null = null;
+      for (let mi = 0; mi < mateBuf.length; mi++) {
+        const m = mateBuf[mi];
+        if (m.id === h.id) continue;
+        if (m.subspecies !== h.subspecies) continue;
+        if (m.energy < config.herbivoreReproductionEnergy * 0.5) continue;
+        if (m.reproductionCooldown > 0) continue;
+        const mStage = m.age / m.maxAge;
+        if (mStage < 0.15) continue; // not baby
+        mate = m;
+        break;
+      }
 
-      const offsetX = rng.range(-15, 15);
-      const offsetY = rng.range(-15, 15);
-      const childX = config.wrapWorld
-        ? ((h.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
-        : Math.max(0, Math.min(config.worldWidth - 0.1, h.pos.x + offsetX));
-      const childY = config.wrapWorld
-        ? ((h.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
-        : Math.max(0, Math.min(config.worldHeight - 0.1, h.pos.y + offsetY));
-      const child = createHerbivore(
-        state.nextId++,
-        childX,
-        childY,
-        rng,
-        config,
-        h.traits
-      );
-      child.energy = config.herbivoreReproductionCost * 0.6;
-      child.lineageId = h.lineageId;
-      child.generation = h.generation + 1;
-      events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
-      newborns.push(child);
-      state.herbTraitMemory.push({ ...h.traits });
-      if (state.herbTraitMemory.length > 50) state.herbTraitMemory.shift();
+      if (mate) {
+        // Both parents pay half cost
+        const halfCost = config.herbivoreReproductionCost / 2;
+        h.energy -= halfCost;
+        mate.energy -= halfCost;
+        h.reproductionCooldown = config.herbivoreReproductionCooldownTime;
+        mate.reproductionCooldown = config.herbivoreReproductionCooldownTime;
+        h.offspringCount++;
+        mate.offspringCount++;
+
+        // Spawn at midpoint
+        const midX = (h.pos.x + mate.pos.x) / 2;
+        const midY = (h.pos.y + mate.pos.y) / 2;
+        const childX = Math.max(0, Math.min(config.worldWidth - 0.1, midX + rng.range(-10, 10)));
+        const childY = Math.max(0, Math.min(config.worldHeight - 0.1, midY + rng.range(-10, 10)));
+
+        // Blend traits from both parents
+        const blendedTraits = {} as HerbivoreTraits;
+        const keys = Object.keys(h.traits) as (keyof HerbivoreTraits)[];
+        for (const key of keys) {
+          const t = 0.3 + rng.next() * 0.4; // lerp 0.3-0.7
+          blendedTraits[key] = h.traits[key] * t + mate.traits[key] * (1 - t);
+        }
+
+        const child = createHerbivore(
+          state.nextId++,
+          childX,
+          childY,
+          rng,
+          config,
+          blendedTraits,
+          h.subspecies
+        );
+        child.energy = config.herbivoreReproductionCost * 0.6;
+        child.lineageId = h.lineageId;
+        child.generation = Math.max(h.generation, mate.generation) + 1;
+        events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
+        state.herbTraitMemory.push({ ...blendedTraits });
+        if (state.herbTraitMemory.length > 50) state.herbTraitMemory.shift();
+      }
     }
   }
 
