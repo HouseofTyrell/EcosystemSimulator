@@ -1311,30 +1311,71 @@ export function updateScavengers(
       continue;
     }
 
-    if (s.energy > config.scavengerReproductionEnergy * (stage === 'elder' ? 2 : 1) && s.reproductionCooldown <= 0 && stage !== 'baby' && state.scavengers.length + newborns.length < config.maxScavengers && densityReproChance(state.scavengers.length, config.maxScavengers, rng)) {
-      s.energy -= config.scavengerReproductionCost;
-      s.reproductionCooldown = config.scavengerReproductionCooldownTime;
-      const offsetX = rng.range(-15, 15);
-      const offsetY = rng.range(-15, 15);
-      const childX = config.wrapWorld
-        ? ((s.pos.x + offsetX) % config.worldWidth + config.worldWidth) % config.worldWidth
-        : Math.max(0, Math.min(config.worldWidth - 0.1, s.pos.x + offsetX));
-      const childY = config.wrapWorld
-        ? ((s.pos.y + offsetY) % config.worldHeight + config.worldHeight) % config.worldHeight
-        : Math.max(0, Math.min(config.worldHeight - 0.1, s.pos.y + offsetY));
-      const child = createScavenger(
-        state.nextId++,
-        childX,
-        childY,
-        rng, config, s.traits
-      );
-      child.energy = config.scavengerReproductionCost * 0.6;
-      child.lineageId = s.lineageId;
-      child.generation = s.generation + 1;
-      newborns.push(child);
-      state.scavTraitMemory.push({ ...s.traits });
-      if (state.scavTraitMemory.length > 50) state.scavTraitMemory.shift();
-      events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
+    // Reproduction: two-parent mating system
+    if (
+      s.energy > config.scavengerReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
+      s.reproductionCooldown <= 0 &&
+      stage !== 'baby' &&
+      state.scavengers.length + newborns.length < config.maxScavengers &&
+      densityReproChance(state.scavengers.length, config.maxScavengers, rng)
+    ) {
+      // Find nearby mate: same subspecies, energy > 50% threshold, cooldown ready, not baby
+      const mateBuf: Scavenger[] = [];
+      scavHash.query(s.pos, 60, mateBuf);
+      let mate: Scavenger | null = null;
+      for (let mi = 0; mi < mateBuf.length; mi++) {
+        const m = mateBuf[mi];
+        if (m.id === s.id) continue;
+        if (m.subspecies !== s.subspecies) continue;
+        if (m.energy < config.scavengerReproductionEnergy * 0.5) continue;
+        if (m.reproductionCooldown > 0) continue;
+        const mStage = m.age / m.maxAge;
+        if (mStage < 0.15) continue; // not baby
+        mate = m;
+        break;
+      }
+
+      if (mate) {
+        // Both parents pay half cost
+        const halfCost = config.scavengerReproductionCost / 2;
+        s.energy -= halfCost;
+        mate.energy -= halfCost;
+        s.reproductionCooldown = config.scavengerReproductionCooldownTime;
+        mate.reproductionCooldown = config.scavengerReproductionCooldownTime;
+        s.offspringCount++;
+        mate.offspringCount++;
+
+        // Spawn at midpoint
+        const midX = (s.pos.x + mate.pos.x) / 2;
+        const midY = (s.pos.y + mate.pos.y) / 2;
+        const childX = Math.max(0, Math.min(config.worldWidth - 0.1, midX + rng.range(-10, 10)));
+        const childY = Math.max(0, Math.min(config.worldHeight - 0.1, midY + rng.range(-10, 10)));
+
+        // Blend traits from both parents
+        const blendedTraits = {} as ScavengerTraits;
+        const keys = Object.keys(s.traits) as (keyof ScavengerTraits)[];
+        for (const key of keys) {
+          const t = 0.3 + rng.next() * 0.4; // lerp 0.3-0.7
+          blendedTraits[key] = s.traits[key] * t + mate.traits[key] * (1 - t);
+        }
+
+        const child = createScavenger(
+          state.nextId++,
+          childX,
+          childY,
+          rng,
+          config,
+          blendedTraits,
+          s.subspecies
+        );
+        child.energy = config.scavengerReproductionCost * 0.6;
+        child.lineageId = s.lineageId;
+        child.generation = Math.max(s.generation, mate.generation) + 1;
+        events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
+        state.scavTraitMemory.push({ ...blendedTraits });
+        if (state.scavTraitMemory.length > 50) state.scavTraitMemory.shift();
+      }
     }
   }
 
