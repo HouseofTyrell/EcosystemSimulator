@@ -20,6 +20,7 @@ export class UIOverlay {
   private statsEl: HTMLDivElement;
   private helpEl: HTMLDivElement;
   private settingsEl: HTMLDivElement;
+  private bottomStatus: HTMLDivElement;
   private speedEl: HTMLDivElement;
   private pauseEl: HTMLDivElement;
   private seedEl: HTMLDivElement;
@@ -40,21 +41,24 @@ export class UIOverlay {
     this.statsEl.id = 'stats';
     this.overlay.appendChild(this.statsEl);
 
-    // Speed indicator
+    // Bottom status bar (speed + seed combined)
+    this.bottomStatus = document.createElement('div');
+    this.bottomStatus.id = 'bottom-status';
+    this.overlay.appendChild(this.bottomStatus);
+
     this.speedEl = document.createElement('div');
     this.speedEl.id = 'speed-indicator';
-    this.overlay.appendChild(this.speedEl);
+    this.bottomStatus.appendChild(this.speedEl);
+
+    this.seedEl = document.createElement('div');
+    this.seedEl.id = 'seed-display';
+    this.bottomStatus.appendChild(this.seedEl);
 
     // Pause indicator
     this.pauseEl = document.createElement('div');
     this.pauseEl.id = 'pause-indicator';
     this.pauseEl.textContent = 'PAUSED';
     this.overlay.appendChild(this.pauseEl);
-
-    // Seed display
-    this.seedEl = document.createElement('div');
-    this.seedEl.id = 'seed-display';
-    this.overlay.appendChild(this.seedEl);
 
     // Help
     this.helpEl = document.createElement('div');
@@ -103,7 +107,7 @@ export class UIOverlay {
 
     this.settingsEl.innerHTML = `
       <div class="settings-header">
-        <span>Settings</span>
+        <span>\u2699 Settings</span>
         <span class="toggle-icon">+</span>
       </div>
       <div class="settings-body">

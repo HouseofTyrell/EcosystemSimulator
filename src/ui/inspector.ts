@@ -140,7 +140,7 @@ export class CreatureInspector {
         const cause = pin.lastDeathCause;
         const causeLabel = cause ? cause.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Dead';
 
-        html += `<div class="inspector-card${fadeClass}">
+        html += `<div class="inspector-card${fadeClass}" style="--creature-color:${color}">
           <div class="inspector-header" style="color:${color}">
             ${label} #${pin.id}
             <span class="inspector-close" data-id="${pin.id}">&times;</span>
@@ -171,7 +171,7 @@ export class CreatureInspector {
           sparklineHtml = `<svg class="inspector-sparkline" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1"/></svg>`;
         }
 
-        html += `<div class="inspector-card${fadeClass}">
+        html += `<div class="inspector-card${fadeClass}" style="--creature-color:${color}">
           <div class="inspector-header" style="color:${color}">
             ${label} #${pin.id}
             <span class="inspector-close" data-id="${pin.id}">&times;</span>

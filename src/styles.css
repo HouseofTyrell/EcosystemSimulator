@@ -46,10 +46,11 @@ canvas {
   font-size: 11px;
   line-height: 1.4;
   color: #778899;
-  background: rgba(8, 8, 14, 0.75);
-  padding: 8px 12px;
+  background: rgba(10, 12, 20, 0.82);
+  padding: 10px 14px;
   border-radius: 6px;
   border: 1px solid rgba(34, 51, 68, 0.5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   min-width: 120px;
   pointer-events: auto;
 }
@@ -58,7 +59,9 @@ canvas {
   display: flex;
   gap: 8px;
   align-items: baseline;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(34, 51, 68, 0.3);
 }
 
 #stats .fps-value {
@@ -69,13 +72,14 @@ canvas {
 }
 
 #stats .label {
-  color: #556677;
+  color: #667788;
   font-size: 10px;
 }
 
 #stats .value {
-  color: #8899aa;
+  color: #99aabb;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 #stats .stats-event {
@@ -90,12 +94,13 @@ canvas {
   gap: 10px;
   margin: 4px 0;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 #stats .sub-detail {
-  color: #445566;
-  font-size: 9px;
+  color: #667788;
+  font-size: 10px;
 }
 
 #stats .stats-footer {
@@ -117,9 +122,10 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(8, 8, 14, 0.92);
+  background: rgba(10, 12, 20, 0.92);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   padding: 24px 32px;
   font-size: 13px;
   line-height: 1.8;
@@ -156,9 +162,10 @@ canvas {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(8, 8, 14, 0.75);
+  background: rgba(10, 12, 20, 0.82);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   padding: 12px 16px;
   font-size: 11px;
   pointer-events: auto;
@@ -170,8 +177,8 @@ canvas {
 #settings.collapsed {
   padding: 6px 14px;
   min-width: auto;
-  border-radius: 4px;
-  background: rgba(8, 8, 14, 0.65);
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.72);
   border: 1px solid rgba(34, 51, 68, 0.5);
   cursor: pointer;
 }
@@ -185,17 +192,16 @@ canvas {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  color: #667788;
+  color: #778899;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
 
 #settings.collapsed .settings-header {
   margin-bottom: 0;
-  color: #8899aa;
-  font-size: 10px;
+  color: #778899;
+  font-size: 11px;
   gap: 6px;
 }
 
@@ -231,7 +237,7 @@ canvas {
   color: #556677;
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   margin-bottom: 4px;
   margin-top: 2px;
 }
@@ -260,18 +266,34 @@ canvas {
   cursor: pointer;
 }
 
-/* Speed indicator */
-#speed-indicator {
+/* Bottom status bar (speed + seed) */
+#bottom-status {
   position: absolute;
   bottom: 16px;
   left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(10, 12, 20, 0.72);
+  border-radius: 6px;
+  border: 1px solid rgba(34, 51, 68, 0.3);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+#speed-indicator {
   font-size: 11px;
   color: #667788;
-  background: rgba(8, 8, 14, 0.75);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  z-index: 10;
+  padding: 4px 10px;
+}
+
+#seed-display {
+  font-size: 10px;
+  color: #556677;
+  padding: 4px 10px;
+  border-left: 1px solid rgba(34, 51, 68, 0.4);
 }
 
 /* Pause indicator */
@@ -281,30 +303,20 @@ canvas {
   left: 50%;
   transform: translateX(-50%);
   font-size: 13px;
-  color: #667788;
-  background: rgba(8, 8, 14, 0.75);
-  padding: 4px 10px;
-  border-radius: 4px;
+  color: #778899;
+  background: rgba(10, 12, 20, 0.82);
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(34, 51, 68, 0.5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   display: none;
   z-index: 10;
+  letter-spacing: 2px;
+  font-weight: 600;
 }
 
 #pause-indicator.visible {
   display: block;
-}
-
-/* Seed display */
-#seed-display {
-  position: absolute;
-  bottom: 16px;
-  left: 110px;
-  font-size: 10px;
-  color: #445566;
-  background: rgba(8, 8, 14, 0.75);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  z-index: 10;
 }
 
 #population-graph-panel {
@@ -312,10 +324,11 @@ canvas {
   bottom: 16px;
   right: 16px;
   width: 350px;
-  background: rgba(8, 8, 14, 0.75);
+  background: rgba(10, 12, 20, 0.82);
   border: 1px solid rgba(34, 51, 68, 0.5);
   border-radius: 6px;
-  padding: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  padding: 8px;
   pointer-events: auto;
   z-index: 10;
 }
@@ -325,10 +338,9 @@ canvas {
   justify-content: space-between;
   align-items: center;
   cursor: grab;
-  color: #667788;
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  color: #778899;
+  font-size: 10px;
+  letter-spacing: 0.3px;
   margin-bottom: 4px;
   user-select: none;
 }
@@ -344,10 +356,10 @@ canvas {
 
 .legend-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  margin-left: 4px;
+  margin-left: 6px;
 }
 
 #population-graph {
@@ -377,11 +389,13 @@ canvas {
 }
 
 .inspector-card {
-  background: rgba(8, 8, 14, 0.75);
+  background: rgba(10, 12, 20, 0.82);
   border: 1px solid rgba(34, 51, 68, 0.5);
+  border-left: 2px solid var(--creature-color, rgba(34, 51, 68, 0.5));
   border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  padding: 8px 10px 8px 10px;
+  font-size: 11px;
   transition: opacity 0.5s;
 }
 
@@ -432,12 +446,13 @@ canvas {
 .inspector-row, .inspector-trait {
   display: flex;
   justify-content: space-between;
-  color: #556677;
+  color: #667788;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
 }
 
 .inspector-trait span:last-child {
-  color: #7788aa;
+  color: #99aabb;
 }
 
 .inspector-sparkline {
@@ -466,10 +481,11 @@ canvas {
   overflow-y: auto;
   pointer-events: auto;
   font-size: 10px;
-  background: rgba(8, 8, 14, 0.75);
+  background: rgba(10, 12, 20, 0.82);
   padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid rgba(34, 51, 68, 0.5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 #event-feed:empty {
@@ -495,9 +511,10 @@ canvas {
 /* Hover tooltip */
 #tooltip {
   position: fixed;
-  background: rgba(10, 12, 18, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  background: rgba(10, 12, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   padding: 6px 10px;
   font-size: 11px;
   color: #ccc;
@@ -512,10 +529,11 @@ canvas {
 /* Minimap */
 #minimap {
   position: fixed;
-  bottom: 44px;
-  left: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  bottom: 48px;
+  left: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   z-index: 50;
 }
@@ -523,8 +541,12 @@ canvas {
 
 /* Draggable panel hover hint */
 #stats:hover,
-#settings .settings-header:hover,
-#inspector:hover,
+#settings:hover,
 #event-feed:hover {
   border-color: rgba(68, 102, 136, 0.6);
+}
+
+.inspector-card:hover {
+  border-color: rgba(68, 102, 136, 0.6);
+  border-left-color: var(--creature-color, rgba(68, 102, 136, 0.6));
 }
