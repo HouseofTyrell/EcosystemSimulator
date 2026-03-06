@@ -670,9 +670,9 @@ export function steerPredator(
     }
   }
 
-  // 2) Separation from other predators
+  // 2) Predator spacing: stalkers separate, pack hunters cluster
   const predBuf: Predator[] = [];
-  predHash.query(p.pos, 35, predBuf);
+  predHash.query(p.pos, p.subspecies === 1 ? 120 : 35, predBuf);
   for (let i = 0; i < predBuf.length; i++) {
     const other = predBuf[i];
     if (other.id === p.id) continue;
@@ -680,9 +680,23 @@ export function steerPredator(
     const d2 = delta.x * delta.x + delta.y * delta.y;
     if (d2 < 1) continue;
     const d = Math.sqrt(d2);
-    const strength = 20 / d;
-    fx -= (delta.x / d) * strength;
-    fy -= (delta.y / d) * strength;
+    if (p.subspecies === 1 && other.subspecies === 1) {
+      // Pack hunters: attract toward each other (maintain ~30px spacing)
+      if (d > 30) {
+        const strength = 15;
+        fx += (delta.x / d) * strength;
+        fy += (delta.y / d) * strength;
+      } else {
+        const strength = 10 / d;
+        fx -= (delta.x / d) * strength;
+        fy -= (delta.y / d) * strength;
+      }
+    } else {
+      // Stalkers and cross-subspecies: separate
+      const strength = 20 / d;
+      fx -= (delta.x / d) * strength;
+      fy -= (delta.y / d) * strength;
+    }
   }
 
   // 3) Water avoidance: check terrain ahead and to sides
@@ -1148,15 +1162,18 @@ export function updatePredators(
             h.alive = false;
             h.deathCause = 'killed';
             events.push({ type: 'death', creatureType: 'herbivore', x: h.pos.x, y: h.pos.y });
-            // Pack Hunter bonus: 1.5x energy when grouped
+            // Kill energy bonus by subspecies
             let killEnergy = config.predatorAttackEnergy;
             if (p.subspecies === 1) {
+              // Pack Hunter: scales with nearby allies
               const nearPreds: Predator[] = [];
-              predHash.query(p.pos, 80, nearPreds);
-              if (nearPreds.length >= 2) killEnergy *= 1.5;
+              predHash.query(p.pos, 120, nearPreds);
+              const allies = nearPreds.filter(o => o.id !== p.id).length;
+              // 1.1x solo, 1.4x with 1 ally, 1.7x with 2+
+              killEnergy *= 1.1 + Math.min(allies, 3) * 0.3;
             } else {
-              // Stalker bonus: 10% solo kill energy
-              killEnergy *= 1.1;
+              // Stalker: flat 15% solo bonus
+              killEnergy *= 1.15;
             }
             p.energy += killEnergy;
           } else {

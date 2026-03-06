@@ -388,14 +388,17 @@ export class Simulation {
       // Spawn as a cluster so they can find mates
       const cx = this.rng.range(100, config.worldWidth - 100);
       const cy = this.rng.range(100, config.worldHeight - 100);
+      // Spawn 4 stalkers + 4 pack hunters in tight cluster
       for (let i = 0; i < 8; i++) {
+        const sub = i < 4 ? 0 : 1;
         const p = createPredator(
           state.nextId++,
           cx + this.rng.range(-40, 40),
           cy + this.rng.range(-40, 40),
           this.rng,
           config,
-          traits || undefined
+          traits || undefined,
+          sub
         );
         p.energy = config.predatorReproductionEnergy * 1.2;
         state.predators.push(p);
