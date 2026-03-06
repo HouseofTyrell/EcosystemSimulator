@@ -122,7 +122,6 @@ export class Renderer {
 
   // Layer containers
   private backgroundLayer: Graphics;
-  private plantContainer: Container;
   private particleContainer: Container;
   private shadowContainer: Container;
   private glowContainer: Container;
@@ -135,7 +134,6 @@ export class Renderer {
   private weatherLayer: Graphics;
 
   // Sprite pools
-  private plantPool!: SpritePool;
   private herbPool!: SpritePool;
   private scavPool!: SpritePool;
   private predPool!: SpritePool;
@@ -151,6 +149,12 @@ export class Renderer {
   private terrainDirty: boolean = true;
   private lastTerrainSeason: number = -1;
   private lastTerrainEvent: string = '';
+
+  // Vegetation overlay
+  private vegCanvas: HTMLCanvasElement | null = null;
+  private vegCtx: CanvasRenderingContext2D | null = null;
+  private vegSprite: Sprite | null = null;
+  private vegUpdateCounter: number = 0;
 
   // Textures
   private textures!: GeneratedTextures;
@@ -173,7 +177,6 @@ export class Renderer {
   constructor() {
     this.app = new Application();
     this.backgroundLayer = new Graphics();
-    this.plantContainer = new Container();
     this.particleContainer = new Container();
     this.shadowContainer = new Container();
     this.glowContainer = new Container();
@@ -220,12 +223,20 @@ export class Renderer {
     this.terrainCanvas.height = options.height;
     this.terrainCtx = this.terrainCanvas.getContext('2d')!;
 
+    this.vegCanvas = document.createElement('canvas');
+    this.vegCanvas.width = options.width;
+    this.vegCanvas.height = options.height;
+    this.vegCtx = this.vegCanvas.getContext('2d')!;
+    this.vegSprite = Sprite.from(this.vegCanvas);
+    this.vegSprite.blendMode = 'multiply';
+    this.vegSprite.alpha = 0.6;
+
     // Add layers to stage in proper z-order
     this.app.stage.addChild(this.backgroundLayer);
     this.app.stage.addChild(this.terrainSprite!);
+    this.app.stage.addChild(this.vegSprite);
     this.app.stage.addChild(this.trailLayer);
     this.app.stage.addChild(this.fadeOverlay);
-    this.app.stage.addChild(this.plantContainer);
     this.app.stage.addChild(this.particleContainer);
     this.app.stage.addChild(this.shadowContainer);
     this.app.stage.addChild(this.glowContainer);
@@ -236,7 +247,6 @@ export class Renderer {
     this.app.stage.addChild(this.nightOverlay);
 
     // Create sprite pools
-    this.plantPool = new SpritePool(this.textures.plant, this.plantContainer);
     this.herbPool = new SpritePool(this.textures.herbivore, this.herbivoreContainer);
     this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
@@ -371,17 +381,11 @@ export class Renderer {
     }
 
     // === 3. Release all pools ===
-    this.plantPool.releaseAll();
     this.herbPool.releaseAll();
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
     this.glowPool.releaseAll();
     this.shadowPool.releaseAll();
-
-    const cols = config.plantGridCols;
-    const rows = config.plantGridRows;
-    const cellW = this.worldW / cols;
-    const cellH = this.worldH / rows;
 
     // === 4. Terrain (cached) ===
     const currentEvent = state.activeEvent?.type || '';
@@ -395,44 +399,17 @@ export class Renderer {
       this.lastTerrainEvent = currentEvent;
     }
 
-    // === 5. Plants — clustered dots to break grid pattern ===
-    const hasWind = state.weather?.type === 'wind' && state.weather.intensity > 0;
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const idx = y * cols + x;
-        const density = state.plantGrid[idx];
-        if (density < 0.15) continue; // Higher threshold: skip sparse cells
-
-        const norm = Math.min(density / config.plantCarryingCapacity, 1);
-        const dotCount = norm > 0.7 ? 3 : norm > 0.35 ? 2 : 1;
-
-        // Wind sway offset for plants
-        const windOffset = hasWind
-          ? Math.sin(time * 1.5 + idx * 0.3) * state.weather.intensity * 2
-          : 0;
-
-        for (let d = 0; d < dotCount; d++) {
-          const sprite = this.plantPool.acquire();
-          // Each sub-dot has unique deterministic jitter
-          const seed1 = ((idx * 2654435761 + d * 40503) >>> 0) / 0xffffffff;
-          const seed2 = ((idx * 340573321 + d * 22291) >>> 0) / 0xffffffff;
-          const jx = (seed1 - 0.5) * cellW * 1.4;
-          const jy = (seed2 - 0.5) * cellH * 1.4;
-          sprite.x = x * cellW + cellW * 0.5 + jx + windOffset;
-          sprite.y = y * cellH + cellH * 0.5 + jy;
-          // Vary green per dot for texture
-          const greenVar = 0x28 + Math.floor(seed1 * 0x18);
-          sprite.tint = (0x1a << 16) | (greenVar << 8) | 0x28;
-          sprite.alpha = norm * 0.45 + 0.08;
-          sprite.scale.set(0.35 + norm * 0.6);
-        }
-      }
+    // === 5. Vegetation overlay (update every 15 frames) ===
+    this.vegUpdateCounter++;
+    if (this.vegUpdateCounter >= 15) {
+      this.updateVegetation(state);
+      this.vegUpdateCounter = 0;
     }
 
     // === Corpses ===
     for (let i = 0; i < state.corpses.length; i++) {
       const c = state.corpses[i];
-      const sprite = this.plantPool.acquire();
+      const sprite = this.shadowPool.acquire();
       sprite.x = c.x * scaleX;
       sprite.y = c.y * scaleY;
       sprite.tint = c.creatureType === 'herbivore' ? 0x336644 : 0x884433;
@@ -925,6 +902,46 @@ export class Renderer {
     }
   }
 
+  private updateVegetation(state: SimState): void {
+    if (!this.vegCanvas || !this.vegCtx) return;
+    const ctx = this.vegCtx;
+    const w = this.vegCanvas.width;
+    const h = this.vegCanvas.height;
+    const config = state.config;
+    const cols = config.plantGridCols;
+    const rows = config.plantGridRows;
+    const cellW = w / cols;
+    const cellH = h / rows;
+
+    // Clear to white (neutral for multiply blend)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const density = state.plantGrid[idx] / config.plantCarryingCapacity;
+        if (density < 0.05) continue;
+
+        // Skip water and mountain cells
+        const terrain = state.terrain[idx];
+        if (terrain === 1 || terrain === 3) continue;
+
+        const green = Math.floor(80 + density * 120);
+        const red = Math.floor(60 + (1 - density) * 60);
+        const alpha = density * 0.5;
+
+        ctx.fillStyle = `rgba(${red}, ${green}, 40, ${alpha})`;
+        ctx.fillRect(x * cellW, y * cellH, cellW + 1, cellH + 1);
+      }
+    }
+
+    // Refresh the pixi texture from canvas
+    if (this.vegSprite) {
+      this.vegSprite.texture.source.update();
+    }
+  }
+
   private renderTerrain(state: SimState): void {
     if (!this.terrainCanvas || !this.terrainCtx) return;
     const w = this.terrainCanvas.width;
@@ -957,6 +974,11 @@ export class Renderer {
     if (this.terrainCanvas) {
       this.terrainCanvas.width = width;
       this.terrainCanvas.height = height;
+    }
+    if (this.vegCanvas) {
+      this.vegCanvas.width = width;
+      this.vegCanvas.height = height;
+      this.vegUpdateCounter = 15; // force refresh
     }
 
     // Clear particles on resize
