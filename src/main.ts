@@ -324,6 +324,19 @@ class App {
       return;
     }
 
+    if (key === 'worldSize') {
+      const sizes: Record<string, [number, number]> = {
+        small: [2000, 2000],
+        medium: [4000, 4000],
+        large: [6000, 6000],
+      };
+      const [w, h] = sizes[value as unknown as string] || sizes.medium;
+      this.sim.setWorldSize(w, h);
+      this.camera.setWorldSize(w, h);
+      this.camera.resetView();
+      return;
+    }
+
     if (key === 'sound') {
       if (!this.audio.isEnabled) this.audio.init();
       else this.audio.toggle();
