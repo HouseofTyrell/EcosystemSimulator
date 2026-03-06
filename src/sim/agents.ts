@@ -270,7 +270,7 @@ export function createPredator(
         visionRange: rng.range(60, 130),
         turnRate: rng.range(2, 5),
         attackCooldown: rng.range(1.0, 2.5),
-        metabolism: rng.range(2, 4),
+        metabolism: rng.range(1.5, 3),
         size: rng.range(2.5, 5),
       };
 
@@ -1498,7 +1498,8 @@ export function updatePredators(
       densityReproChance(state.predators.length, config.maxPredators, rng)
     ) {
       const mateBuf: Predator[] = [];
-      predHash.query(p.pos, 200, mateBuf);
+      const predMateRange = state.predators.length < 30 ? 400 : 200;
+      predHash.query(p.pos, predMateRange, mateBuf);
       let mate: Predator | null = null;
       for (let mi = 0; mi < mateBuf.length; mi++) {
         const m = mateBuf[mi];
@@ -1549,7 +1550,7 @@ export function updatePredators(
         newborns.push(child);
         state.predTraitMemory.push({ ...blendedTraits });
         if (state.predTraitMemory.length > 50) state.predTraitMemory.shift();
-      } else if (state.predators.length < 10 && p.energy > config.predatorReproductionEnergy * 1.5) {
+      } else if (state.predators.length < 25 && p.energy > config.predatorReproductionEnergy * 1.3) {
         // Solo reproduction when population is critically low (higher cost)
         p.energy -= config.predatorReproductionCost;
         p.reproductionCooldown = config.predatorReproductionCooldownTime * 1.5;
@@ -1601,7 +1602,8 @@ export function updateScavengers(
     const speedCostS = s.traits.speed * relSpeedS * relSpeedS * 0.008;
     const sizeCostS = s.traits.size * 0.12;
     const baseMetaS = s.traits.metabolism + s.traits.speed * Math.sqrt(s.traits.speed) * 0.001;
-    s.energy -= (baseMetaS + speedCostS + sizeCostS) * dt;
+    const scavPopFactor = state.scavengers.length < 15 ? 0.65 : 1.0;
+    s.energy -= (baseMetaS + speedCostS + sizeCostS) * dt * scavPopFactor;
 
     // Eat corpses: check nearby corpses
     const eatRange = s.traits.size * 3 + 10;
@@ -1631,16 +1633,16 @@ export function updateScavengers(
       }
     }
 
-    // Fallback: nibble plants when starving (low efficiency)
-    if (s.energy < 25) {
+    // Fallback: nibble plants when hungry (low efficiency)
+    if (s.energy < 40) {
       const nibbled = eatPlant(
         state.plantGrid,
         s.pos.x,
         s.pos.y,
-        config.herbivoreEatRate * 0.2 * dt,
+        config.herbivoreEatRate * 0.35 * dt,
         config
       );
-      s.energy += nibbled * 15;
+      s.energy += nibbled * 18;
     }
 
     // Steering
@@ -1711,14 +1713,14 @@ export function updateScavengers(
       state.scavengers.length + newborns.length < config.maxScavengers &&
       densityReproChance(state.scavengers.length, config.maxScavengers, rng)
     ) {
-      // Find nearby mate: same subspecies, energy > 50% threshold, cooldown ready, not baby
+      // Find nearby mate: energy > 50% threshold, cooldown ready, not baby
       const mateBuf: Scavenger[] = [];
-      scavHash.query(s.pos, 60, mateBuf);
+      const scavMateRange = state.scavengers.length < 30 ? 300 : 150;
+      scavHash.query(s.pos, scavMateRange, mateBuf);
       let mate: Scavenger | null = null;
       for (let mi = 0; mi < mateBuf.length; mi++) {
         const m = mateBuf[mi];
         if (m.id === s.id) continue;
-        if (m.subspecies !== s.subspecies) continue;
         if (m.energy < config.scavengerReproductionEnergy * 0.5) continue;
         if (m.reproductionCooldown > 0) continue;
         const mStage = m.age / m.maxAge;
@@ -1768,6 +1770,27 @@ export function updateScavengers(
         newborns.push(child);
         state.scavTraitMemory.push({ ...blendedTraits });
         if (state.scavTraitMemory.length > 50) state.scavTraitMemory.shift();
+      } else if (state.scavengers.length < 20 && s.energy > config.scavengerReproductionEnergy * 1.3) {
+        // Solo reproduction when population is critically low
+        s.energy -= config.scavengerReproductionCost;
+        s.reproductionCooldown = config.scavengerReproductionCooldownTime * 1.5;
+        s.offspringCount++;
+
+        const child = createScavenger(
+          state.nextId++,
+          s.pos.x + rng.range(-15, 15),
+          s.pos.y + rng.range(-15, 15),
+          rng,
+          config,
+          { ...s.traits },
+          s.subspecies
+        );
+        child.energy = config.scavengerReproductionCost * 0.5;
+        child.lineageId = s.lineageId;
+        child.generation = s.generation + 1;
+        child.parentId = s.id;
+        events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
       }
     }
   }
