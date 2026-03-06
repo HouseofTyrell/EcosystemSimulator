@@ -11,6 +11,10 @@ export interface UICallbacks {
   onSpeedChange: (speed: number) => void;
   onConfigChange: (key: string, value: number | boolean) => void;
   onResetCamera: () => void;
+  onSave: (slot: number) => void;
+  onLoad: (slot: number) => void;
+  onExport: () => void;
+  onImport: (data: object) => void;
   isPaused: () => boolean;
   getSpeed: () => number;
   getSeed: () => number;
@@ -55,9 +59,22 @@ export class UIOverlay {
     this.seedEl.id = 'seed-display';
     this.bottomStatus.appendChild(this.seedEl);
 
+    const shareBtn = document.createElement('button');
+    shareBtn.id = 'share-btn';
+    shareBtn.textContent = 'Share';
+    shareBtn.addEventListener('click', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('seed', String(callbacks.getSeed()));
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        shareBtn.textContent = 'Copied!';
+        setTimeout(() => { shareBtn.textContent = 'Share'; }, 1500);
+      });
+    });
+    this.bottomStatus.appendChild(shareBtn);
+
     const resetCamBtn = document.createElement('button');
     resetCamBtn.id = 'reset-camera-btn';
-    resetCamBtn.textContent = '⌂ Reset Camera';
+    resetCamBtn.textContent = 'Reset Camera';
     resetCamBtn.addEventListener('click', () => callbacks.onResetCamera());
     this.bottomStatus.appendChild(resetCamBtn);
 
@@ -79,6 +96,8 @@ export class UIOverlay {
       <div><span class="key">2</span> Speed 1x</div>
       <div><span class="key">3</span> Speed 2x</div>
       <div><span class="key">4</span> Speed 4x</div>
+      <div><span class="key">5</span> Speed 10x</div>
+      <div><span class="key">6</span> Speed 20x</div>
       <div><span class="key">T</span> Toggle trails</div>
       <div><span class="key">E</span> Toggle trait sparklines</div>
       <div><span class="key">G</span> Toggle graph</div>
@@ -86,6 +105,8 @@ export class UIOverlay {
       <div><span class="key">W</span> Toggle food web</div>
       <div><span class="key">Esc</span> Clear inspector</div>
       <div><span class="key">M</span> Toggle sound</div>
+      <div><span class="key">P</span> Paint terrain tool</div>
+      <div><span class="key">B</span> Spawn creatures tool</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
       <div><span class="key">0</span> Reset camera</div>
@@ -236,6 +257,30 @@ export class UIOverlay {
           <input type="range" min="25" max="250" value="100" data-key="predatorMaxAge" data-scale="1" />
           <span class="val">100</span>
         </div>
+        <div class="settings-divider"></div>
+        <div class="settings-section-label">Save / Load</div>
+        <div class="save-load-slots">
+          <div class="save-slot-row">
+            <span class="slot-label">Slot 1</span>
+            <button class="sl-btn" data-action="save" data-slot="1">Save</button>
+            <button class="sl-btn" data-action="load" data-slot="1">Load</button>
+          </div>
+          <div class="save-slot-row">
+            <span class="slot-label">Slot 2</span>
+            <button class="sl-btn" data-action="save" data-slot="2">Save</button>
+            <button class="sl-btn" data-action="load" data-slot="2">Load</button>
+          </div>
+          <div class="save-slot-row">
+            <span class="slot-label">Slot 3</span>
+            <button class="sl-btn" data-action="save" data-slot="3">Save</button>
+            <button class="sl-btn" data-action="load" data-slot="3">Load</button>
+          </div>
+        </div>
+        <div class="save-slot-row" style="margin-top:6px;">
+          <button class="sl-btn sl-wide" data-action="export">Export JSON</button>
+          <button class="sl-btn sl-wide" data-action="import">Import JSON</button>
+          <input type="file" accept=".json" class="sl-file-input" style="display:none" />
+        </div>
       </div>
     `;
 
@@ -297,6 +342,49 @@ export class UIOverlay {
         }
       });
     });
+
+    // Save/Load buttons
+    const slButtons = this.settingsEl.querySelectorAll('.sl-btn');
+    slButtons.forEach((btn) => {
+      const el = btn as HTMLButtonElement;
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = el.dataset.action;
+        const slot = parseInt(el.dataset.slot || '0', 10);
+        if (action === 'save' && slot > 0) {
+          cb.onSave(slot);
+          el.textContent = 'Saved!';
+          setTimeout(() => { el.textContent = 'Save'; }, 1200);
+        } else if (action === 'load' && slot > 0) {
+          cb.onLoad(slot);
+        } else if (action === 'export') {
+          cb.onExport();
+        } else if (action === 'import') {
+          const fileInput = this.settingsEl.querySelector('.sl-file-input') as HTMLInputElement;
+          fileInput.click();
+        }
+      });
+    });
+
+    // File import handler
+    const fileInput = this.settingsEl.querySelector('.sl-file-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result as string);
+            cb.onImport(data);
+          } catch (e) {
+            console.error('Failed to parse save file:', e);
+          }
+        };
+        reader.readAsText(file);
+        fileInput.value = '';
+      });
+    }
   }
 
   private setupKeyboard(): void {
@@ -327,6 +415,12 @@ export class UIOverlay {
           break;
         case 'Digit4':
           cb.onSpeedChange(4);
+          break;
+        case 'Digit5':
+          cb.onSpeedChange(10);
+          break;
+        case 'Digit6':
+          cb.onSpeedChange(20);
           break;
         case 'KeyH':
           this.toggleHelp();

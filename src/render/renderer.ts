@@ -124,6 +124,16 @@ export class Renderer {
   private territoryGridRows: number = 40;
   private territoriesEnabled: boolean = true;
 
+  // Water overlay for animated ripple/specular
+  private waterCanvas: HTMLCanvasElement | null = null;
+  private waterCtx: CanvasRenderingContext2D | null = null;
+  private waterSprite: Sprite | null = null;
+  private waterUpdateCounter: number = 0;
+
+  // Death fade tracking: map from corpse key to {startTime, x, y, creatureType}
+  private deathFades: Map<string, { startTime: number; x: number; y: number; creatureType: string }> = new Map();
+  private knownCorpseKeys: Set<string> = new Set();
+
   // Textures
   private textures!: GeneratedTextures;
 
@@ -223,9 +233,22 @@ export class Renderer {
       new Float32Array(gridSize),
     ];
 
+    // Water overlay canvas (quarter-res for performance: ~1000x1000 for 4000 world)
+    const waterScale = 0.25;
+    this.waterCanvas = document.createElement('canvas');
+    this.waterCanvas.width = Math.ceil(this.worldW * waterScale);
+    this.waterCanvas.height = Math.ceil(this.worldH * waterScale);
+    this.waterCtx = this.waterCanvas.getContext('2d')!;
+    this.waterSprite = Sprite.from(this.waterCanvas);
+    this.waterSprite.blendMode = 'add';
+    this.waterSprite.alpha = 0.35;
+    this.waterSprite.width = this.worldW;
+    this.waterSprite.height = this.worldH;
+
     // Add layers to stage in proper z-order
     this.app.stage.addChild(this.backgroundLayer);
     this.app.stage.addChild(this.terrainSprite!);
+    this.app.stage.addChild(this.waterSprite);
     this.app.stage.addChild(this.vegSprite);
     this.app.stage.addChild(this.territorySprite);
     this.app.stage.addChild(this.trailLayer);
@@ -400,16 +423,27 @@ export class Renderer {
       this.vegUpdateCounter = 0;
     }
 
-    // === 5b. Territory overlay (update every 30 frames) ===
+    // === 5b. Water ripple overlay (update every 6 frames) ===
+    this.waterUpdateCounter++;
+    if (this.waterUpdateCounter >= 6) {
+      this.updateWaterOverlay(state, time);
+      this.waterUpdateCounter = 0;
+    }
+
+    // === 5c. Territory overlay (update every 30 frames) ===
     this.territoryUpdateCounter++;
     if (this.territoriesEnabled && this.territoryUpdateCounter >= 30) {
       this.updateTerritoryOverlay(state);
       this.territoryUpdateCounter = 0;
     }
 
-    // === Corpses as ground stains ===
+    // === Corpses as ground stains + death fade ghosts ===
+    const currentCorpseKeys = new Set<string>();
     for (let i = 0; i < state.corpses.length; i++) {
       const c = state.corpses[i];
+      const corpseKey = `${Math.round(c.x)}_${Math.round(c.y)}_${c.creatureType}`;
+      currentCorpseKeys.add(corpseKey);
+
       const sprite = this.shadowPool.acquire();
       sprite.x = c.x * scaleX;
       sprite.y = c.y * scaleY;
@@ -417,6 +451,42 @@ export class Renderer {
       const fadeRatio = c.decayTimer / c.maxDecay;
       sprite.alpha = fadeRatio * 0.4;
       sprite.scale.set(0.8);
+
+      // Track newly appeared corpses for death fade
+      if (!this.knownCorpseKeys.has(corpseKey)) {
+        this.deathFades.set(corpseKey, {
+          startTime: time,
+          x: c.x,
+          y: c.y,
+          creatureType: c.creatureType,
+        });
+      }
+    }
+    // Remove stale known keys
+    this.knownCorpseKeys = currentCorpseKeys;
+
+    // Render death fade ghost sprites (creature-shaped, fading out over 0.5s)
+    const DEATH_FADE_DURATION = 0.5;
+    for (const [key, fade] of this.deathFades) {
+      const elapsed = time - fade.startTime;
+      if (elapsed > DEATH_FADE_DURATION) {
+        this.deathFades.delete(key);
+        continue;
+      }
+      if (fade.x < cullLeft || fade.x > cullRight || fade.y < cullTop || fade.y > cullBottom) continue;
+
+      const alpha = 1.0 - (elapsed / DEATH_FADE_DURATION);
+      const pool = fade.creatureType === 'herbivore' ? this.herbPool
+        : fade.creatureType === 'predator' ? this.predPool
+        : fade.creatureType === 'scavenger' ? this.scavPool
+        : this.insectPool;
+      const ghost = pool.acquire();
+      ghost.x = fade.x * scaleX;
+      ghost.y = fade.y * scaleY;
+      ghost.tint = 0xccbbaa; // pale ghost tint
+      ghost.alpha = alpha * 0.6;
+      ghost.scale.set(0.28 * (1.0 + elapsed * 0.3)); // slight expand as it fades
+      ghost.rotation = 0;
     }
 
     // Shadow offset scales with sun angle (dawn/dusk = longer shadows)
@@ -464,8 +534,10 @@ export class Renderer {
         const velMagH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
         const flexPhaseH = (time * Math.max(velMagH, 0) * 0.12 + h.id * 0.3) % (Math.PI * 2);
         const flexAmountH = velMagH > 5 ? 0.08 : 0;
-        const scaleXBody = baseScale * (1 + Math.sin(flexPhaseH) * flexAmountH);
-        const scaleYBody = baseScale * (1 - Math.sin(flexPhaseH) * flexAmountH * 0.5);
+        // Eat pulse: subtle scale throb when grazing
+        const eatPulseH = (h.behavior === 'grazing' || h.behavior === 'feeding') ? (1.0 + 0.1 * Math.sin(time * 8)) : 1.0;
+        const scaleXBody = baseScale * (1 + Math.sin(flexPhaseH) * flexAmountH) * eatPulseH;
+        const scaleYBody = baseScale * (1 - Math.sin(flexPhaseH) * flexAmountH * 0.5) * eatPulseH;
         sprite.scale.set(scaleXBody, scaleYBody);
 
         // Simplified matte alpha
@@ -536,8 +608,10 @@ export class Renderer {
         const velMagP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
         const flexPhaseP = (time * Math.max(velMagP, 0) * 0.12 + p.id * 0.3) % (Math.PI * 2);
         const flexAmountP = velMagP > 5 ? 0.10 : 0;
-        const scaleXBodyP = baseScale * (1 + Math.sin(flexPhaseP) * flexAmountP);
-        const scaleYBodyP = baseScale * (1 - Math.sin(flexPhaseP) * flexAmountP * 0.5);
+        // Eat pulse: subtle scale throb when attacking/feeding
+        const eatPulseP = (p.behavior === 'attacking' || p.behavior === 'feeding') ? (1.0 + 0.1 * Math.sin(time * 8)) : 1.0;
+        const scaleXBodyP = baseScale * (1 + Math.sin(flexPhaseP) * flexAmountP) * eatPulseP;
+        const scaleYBodyP = baseScale * (1 - Math.sin(flexPhaseP) * flexAmountP * 0.5) * eatPulseP;
         sprite.scale.set(scaleXBodyP, scaleYBodyP);
 
         // Simplified matte alpha
@@ -607,8 +681,10 @@ export class Renderer {
         const velMagS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
         const flexPhaseS = (time * Math.max(velMagS, 0) * 0.12 + s.id * 0.3) % (Math.PI * 2);
         const flexAmountS = velMagS > 5 ? 0.08 : 0;
-        const scaleXBodyS = baseScale * (1 + Math.sin(flexPhaseS) * flexAmountS);
-        const scaleYBodyS = baseScale * (1 - Math.sin(flexPhaseS) * flexAmountS * 0.5);
+        // Eat pulse: subtle scale throb when feeding/scavenging
+        const eatPulseS = (s.behavior === 'feeding' || s.behavior === 'scavenging') ? (1.0 + 0.1 * Math.sin(time * 8)) : 1.0;
+        const scaleXBodyS = baseScale * (1 + Math.sin(flexPhaseS) * flexAmountS) * eatPulseS;
+        const scaleYBodyS = baseScale * (1 - Math.sin(flexPhaseS) * flexAmountS * 0.5) * eatPulseS;
         sprite.scale.set(scaleXBodyS, scaleYBodyS);
 
         // Simplified matte alpha
@@ -895,6 +971,57 @@ export class Renderer {
     // Refresh pixi texture from canvas
     if (this.territorySprite) {
       this.territorySprite.texture.source.update();
+    }
+  }
+
+  private updateWaterOverlay(state: SimState, time: number): void {
+    if (!this.waterCanvas || !this.waterCtx) return;
+    const ctx = this.waterCtx;
+    const w = this.waterCanvas.width;
+    const h = this.waterCanvas.height;
+    const { terrain, config } = state;
+    const cols = config.plantGridCols;
+    const rows = config.plantGridRows;
+    const cellW = w / cols;
+    const cellH = h / rows;
+
+    // Clear to transparent
+    ctx.clearRect(0, 0, w, h);
+
+    // Only iterate over grid cells that are water, draw per-cell ripple effect
+    for (let gy = 0; gy < rows; gy++) {
+      for (let gx = 0; gx < cols; gx++) {
+        const idx = gy * cols + gx;
+        if (terrain[idx] !== 1) continue; // Skip non-water
+
+        const px0 = Math.floor(gx * cellW);
+        const py0 = Math.floor(gy * cellH);
+        const px1 = Math.ceil((gx + 1) * cellW);
+        const py1 = Math.ceil((gy + 1) * cellH);
+
+        // Sample ripple at cell center for efficiency
+        const cx = (px0 + px1) * 0.5;
+        const cy = (py0 + py1) * 0.5;
+
+        const ripple = Math.sin(cx * 0.1 + time * 2) * Math.cos(cy * 0.08 + time * 1.5) * 15;
+        const specRaw = Math.sin(cx * 0.05 + time * 3) * Math.sin(cy * 0.07 + time * 2) - 0.7;
+        const specular = specRaw > 0 ? specRaw * 80 : 0;
+        const brightness = Math.max(0, Math.min(255, ripple + specular));
+
+        if (brightness < 1) continue;
+
+        const r = Math.min(255, Math.floor(brightness * 0.7));
+        const g = Math.min(255, Math.floor(brightness * 0.9));
+        const b = Math.min(255, Math.floor(brightness));
+        const a = Math.min(1, brightness / 170);
+
+        ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+        ctx.fillRect(px0, py0, px1 - px0, py1 - py0);
+      }
+    }
+
+    if (this.waterSprite) {
+      this.waterSprite.texture.source.update();
     }
   }
 

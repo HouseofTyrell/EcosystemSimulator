@@ -1,10 +1,11 @@
 // src/sim/sim-worker-client.ts
 import type { SimConfig, SimStats, FeedEvent, Corpse, WeatherState, ActiveEvent } from './types';
-import type { RenderSnapshot, CreatureSnapshot, WorkerToMainMessage } from './worker-protocol';
+import type { RenderSnapshot, CreatureSnapshot, WorkerToMainMessage, GenealogySnapshot } from './worker-protocol';
 
 export interface CreatureView {
   id: number;
   type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
+  parentId: number | null;
   pos: { x: number; y: number };
   vel: { x: number; y: number };
   energy: number;
@@ -52,12 +53,14 @@ export interface RenderState {
   lineageCounts: Map<number, number>;
   recentDeaths: Map<number, string>;
   nextId: number;
+  genealogy: GenealogySnapshot[];
 }
 
 function snapshotToView(s: CreatureSnapshot): CreatureView {
   return {
     id: s.id,
     type: s.type,
+    parentId: s.parentId ?? null,
     pos: { x: s.x, y: s.y },
     vel: { x: s.vx, y: s.vy },
     energy: s.energy,
@@ -90,6 +93,7 @@ export class SimWorkerClient {
   private _renderState: RenderState;
   private _ready: boolean = false;
   private _onReady: (() => void) | null = null;
+  private _saveResolve: ((data: object) => void) | null = null;
 
   constructor(config: Partial<SimConfig>) {
     this.worker = new Worker(
@@ -107,6 +111,11 @@ export class SimWorkerClient {
         if (this._onReady) this._onReady();
       } else if (msg.type === 'snapshot') {
         this.applySnapshot(msg.data);
+      } else if (msg.type === 'stateData') {
+        if (this._saveResolve) {
+          this._saveResolve(msg.data);
+          this._saveResolve = null;
+        }
       }
     };
 
@@ -162,6 +171,7 @@ export class SimWorkerClient {
       lineageCounts: new Map(),
       recentDeaths: new Map(),
       nextId: 0,
+      genealogy: [],
     };
   }
 
@@ -196,6 +206,25 @@ export class SimWorkerClient {
     this.worker.postMessage({ type: 'setWorldSize', width, height });
     this._renderState.config.worldWidth = width;
     this._renderState.config.worldHeight = height;
+  }
+
+  paintTerrain(cells: { col: number; row: number; terrain: number }[]): void {
+    this.worker.postMessage({ type: 'paintTerrain', cells });
+  }
+
+  spawnCreature(creatureType: 'herbivore' | 'predator' | 'scavenger' | 'insect', x: number, y: number, count: number): void {
+    this.worker.postMessage({ type: 'spawnCreature', creatureType, x, y, count });
+  }
+
+  requestSave(): Promise<object> {
+    return new Promise((resolve) => {
+      this._saveResolve = resolve;
+      this.worker.postMessage({ type: 'saveState' });
+    });
+  }
+
+  loadState(data: object): void {
+    this.worker.postMessage({ type: 'loadState', data });
   }
 
   setPopCaps(maxH: number, maxP: number, maxS: number, maxI: number = 3000): void {
@@ -242,6 +271,7 @@ export class SimWorkerClient {
     rs.predators = preds;
     rs.scavengers = scavs;
     rs.insects = insects;
+    rs.genealogy = snap.genealogy || [];
   }
 
   destroy(): void {

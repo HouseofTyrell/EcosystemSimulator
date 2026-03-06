@@ -1,7 +1,7 @@
 // Main simulation orchestrator
 // Pure logic - no DOM, no rendering
 
-import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Insect, Corpse, WeatherState, HerbivoreTraits, PredatorTraits, ScavengerTraits, InsectTraits } from './types';
+import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Insect, Corpse, WeatherState, HerbivoreTraits, PredatorTraits, ScavengerTraits, InsectTraits, GenealogyEntry } from './types';
 import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
@@ -106,6 +106,7 @@ export class Simulation {
       insectTraitMemory: [],
       reintroductionTime: -Infinity,
       recentDeaths: new Map(),
+      genealogy: new Map(),
     };
 
     this.spawnQueues = this.createSpawnQueues(fullConfig);
@@ -414,6 +415,26 @@ export class Simulation {
     state.scavengers.push(...newScavs);
     state.insects.push(...newInsects);
 
+    // Record genealogy for newborns
+    const allNewborns = [...newHerbs, ...newPreds, ...newScavs, ...newInsects];
+    for (const child of allNewborns) {
+      state.genealogy.set(child.id, {
+        id: child.id,
+        parentId: child.parentId,
+        type: child.type,
+        generation: child.generation,
+        birthTime: state.time,
+      });
+    }
+    // Cap genealogy at 500 entries
+    if (state.genealogy.size > 500) {
+      const entries = Array.from(state.genealogy.keys());
+      const toRemove = entries.length - 500;
+      for (let i = 0; i < toRemove; i++) {
+        state.genealogy.delete(entries[i]);
+      }
+    }
+
     // Extinction recovery: adaptive reintroduction with trait memory
     if (state.herbivores.length === 0 && this.rng.next() < 0.02) {
       const traits = avgTraits(state.herbTraitMemory) as HerbivoreTraits | null;
@@ -684,6 +705,45 @@ export class Simulation {
     this.prevLineageCounts = new Map(state.lineageCounts);
   }
 
+  paintTerrain(cells: { col: number; row: number; terrain: number }[]): void {
+    const state = this.state;
+    const cols = state.config.plantGridCols;
+    const rows = state.config.plantGridRows;
+    for (const cell of cells) {
+      if (cell.col >= 0 && cell.col < cols && cell.row >= 0 && cell.row < rows) {
+        const idx = cell.row * cols + cell.col;
+        state.terrain[idx] = cell.terrain;
+        // Water kills plants, fertile boosts them, mountain kills them
+        if (cell.terrain === TerrainType.Water || cell.terrain === TerrainType.Mountain) {
+          state.plantGrid[idx] = 0;
+        } else if (cell.terrain === TerrainType.Fertile) {
+          // Boost soil health for fertile terrain
+          state.soilHealth[idx] = Math.min(state.soilHealth[idx] + 0.3, 1.5);
+        }
+      }
+    }
+  }
+
+  spawnCreatures(creatureType: 'herbivore' | 'predator' | 'scavenger' | 'insect', x: number, y: number, count: number): void {
+    const state = this.state;
+    const config = state.config;
+    for (let i = 0; i < count; i++) {
+      const offsetX = count > 1 ? this.rng.range(-30, 30) : 0;
+      const offsetY = count > 1 ? this.rng.range(-30, 30) : 0;
+      const sx = Math.max(0, Math.min(config.worldWidth, x + offsetX));
+      const sy = Math.max(0, Math.min(config.worldHeight, y + offsetY));
+      if (creatureType === 'herbivore') {
+        state.herbivores.push(createHerbivore(state.nextId++, sx, sy, this.rng, config));
+      } else if (creatureType === 'predator') {
+        state.predators.push(createPredator(state.nextId++, sx, sy, this.rng, config));
+      } else if (creatureType === 'scavenger') {
+        state.scavengers.push(createScavenger(state.nextId++, sx, sy, this.rng, config));
+      } else {
+        state.insects.push(createInsect(state.nextId++, sx, sy, this.rng, config));
+      }
+    }
+  }
+
   reset(seed?: number): void {
     const config = { ...this.state.config };
     if (seed !== undefined) {
@@ -720,6 +780,7 @@ export class Simulation {
       insectTraitMemory: [],
       reintroductionTime: -Infinity,
       recentDeaths: new Map(),
+      genealogy: new Map(),
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;
@@ -734,5 +795,157 @@ export class Simulation {
     this.milestones.clear();
     this.prevWeatherType = 'clear';
     this.prevLineageCounts.clear();
+  }
+
+  /** Serialize full simulation state to a plain object for JSON export. */
+  serialize(): object {
+    const state = this.state;
+
+    function serializeCreature(c: Herbivore | Predator | Scavenger | Insect): object {
+      const base: Record<string, unknown> = {
+        type: c.type,
+        id: c.id,
+        parentId: c.parentId,
+        pos: c.pos,
+        vel: c.vel,
+        energy: c.energy,
+        age: c.age,
+        maxAge: c.maxAge,
+        reproductionCooldown: c.reproductionCooldown,
+        alive: c.alive,
+        lineageId: c.lineageId,
+        generation: c.generation,
+        behavior: c.behavior,
+        stamina: c.stamina,
+        exhausted: c.exhausted,
+        lastThreatPos: c.lastThreatPos,
+        threatTimer: c.threatTimer,
+        offspringCount: c.offspringCount,
+        deathCause: c.deathCause,
+        infected: c.infected,
+        subspecies: c.subspecies,
+        birthPos: c.birthPos,
+        homeBase: c.homeBase,
+        traits: c.traits,
+        // Memory: serialize typed arrays
+        memory: c.memory ? {
+          foodQuality: Array.from(c.memory.foodQuality),
+          dangerLevel: Array.from(c.memory.dangerLevel),
+          lastVisited: Array.from(c.memory.lastVisited),
+        } : null,
+      };
+      if (c.type === 'predator') {
+        base.attackTimer = (c as Predator).attackTimer;
+      }
+      return base;
+    }
+
+    return {
+      version: 1,
+      config: { ...state.config },
+      time: state.time,
+      season: state.season,
+      seasonalMultiplier: state.seasonalMultiplier,
+      dayPhase: state.dayPhase,
+      timeOfDay: state.timeOfDay,
+      nextId: state.nextId,
+      eventCooldown: state.eventCooldown,
+      weatherCooldown: state.weatherCooldown,
+      reintroductionTime: state.reintroductionTime,
+      weather: { ...state.weather },
+      activeEvent: state.activeEvent ? { ...state.activeEvent } : null,
+      plantGrid: Array.from(state.plantGrid),
+      terrain: Array.from(state.terrain),
+      soilHealth: Array.from(state.soilHealth),
+      herbivores: state.herbivores.map(serializeCreature),
+      predators: state.predators.map(serializeCreature),
+      scavengers: state.scavengers.map(serializeCreature),
+      insects: state.insects.map(serializeCreature),
+      corpses: state.corpses,
+      herbTraitMemory: state.herbTraitMemory,
+      predTraitMemory: state.predTraitMemory,
+      scavTraitMemory: state.scavTraitMemory,
+      insectTraitMemory: state.insectTraitMemory,
+      genealogy: Array.from(state.genealogy.entries()),
+      rngState: this.rng.getState(),
+    };
+  }
+
+  /** Restore simulation state from a deserialized object. */
+  deserialize(data: Record<string, unknown>): void {
+    const d = data as Record<string, any>;
+    const config = d.config as SimConfig;
+
+    function deserializeCreature(raw: any): any {
+      const c = { ...raw };
+      if (c.memory) {
+        c.memory = {
+          foodQuality: Float32Array.from(c.memory.foodQuality),
+          dangerLevel: Float32Array.from(c.memory.dangerLevel),
+          lastVisited: Float32Array.from(c.memory.lastVisited),
+        };
+      }
+      // Ensure parentId exists (backward compat)
+      if (c.parentId === undefined) c.parentId = null;
+      return c;
+    }
+
+    this.rng = new SeededRNG(config.seed);
+    if (d.rngState !== undefined) {
+      this.rng.setState(d.rngState);
+    }
+
+    this.state = {
+      config,
+      time: d.time,
+      season: d.season,
+      seasonalMultiplier: d.seasonalMultiplier,
+      dayPhase: d.dayPhase,
+      timeOfDay: d.timeOfDay,
+      plantGrid: Float32Array.from(d.plantGrid),
+      terrain: Uint8Array.from(d.terrain),
+      soilHealth: d.soilHealth ? Float32Array.from(d.soilHealth) : new Float32Array(config.plantGridCols * config.plantGridRows).fill(1.0),
+      herbivores: (d.herbivores as any[]).map(deserializeCreature),
+      predators: (d.predators as any[]).map(deserializeCreature),
+      scavengers: (d.scavengers as any[]).map(deserializeCreature),
+      insects: (d.insects as any[]).map(deserializeCreature),
+      corpses: d.corpses || [],
+      nextId: d.nextId,
+      stats: this.emptyStats(),
+      events: [],
+      activeEvent: d.activeEvent || null,
+      eventCooldown: d.eventCooldown ?? 30,
+      feedEvents: [],
+      weather: d.weather || { type: 'clear', intensity: 0, duration: 0, remaining: 0, windAngle: 0 },
+      weatherCooldown: d.weatherCooldown ?? 60,
+      lineageCounts: new Map(),
+      herbTraitMemory: d.herbTraitMemory || [],
+      predTraitMemory: d.predTraitMemory || [],
+      scavTraitMemory: d.scavTraitMemory || [],
+      insectTraitMemory: d.insectTraitMemory || [],
+      reintroductionTime: d.reintroductionTime ?? -Infinity,
+      recentDeaths: new Map(),
+      genealogy: d.genealogy ? new Map(d.genealogy) : new Map(),
+    };
+
+    // Rebuild spatial hashes
+    this.herbHash = new SpatialHash(config.worldWidth, config.worldHeight, config.spatialCellSize);
+    this.predHash = new SpatialHash(config.worldWidth, config.worldHeight, config.spatialCellSize);
+    this.scavHash = new SpatialHash(config.worldWidth, config.worldHeight, config.spatialCellSize);
+    this.insectHash = new SpatialHash(config.worldWidth, config.worldHeight, config.spatialCellSize);
+    this.herbHash.wrap = config.wrapWorld;
+    this.predHash.wrap = config.wrapWorld;
+    this.scavHash.wrap = config.wrapWorld;
+    this.insectHash.wrap = config.wrapWorld;
+    this.diffusionAccum = 0;
+    this.spawnQueues = { herb: { remaining: 0, interval: 3, timer: 0, startDelay: 0 }, pred: { remaining: 0, interval: 5, timer: 0, startDelay: 0 }, scav: { remaining: 0, interval: 4, timer: 0, startDelay: 0 }, insect: { remaining: 0, interval: 2, timer: 0, startDelay: 0 } };
+    this.prevHerbCount = this.state.herbivores.length;
+    this.prevPredCount = this.state.predators.length;
+    this.prevScavCount = this.state.scavengers.length;
+    this.prevInsectCount = this.state.insects.length;
+    this.milestones.clear();
+    this.prevWeatherType = this.state.weather.type;
+    this.prevLineageCounts.clear();
+    this.computeStats();
   }
 }

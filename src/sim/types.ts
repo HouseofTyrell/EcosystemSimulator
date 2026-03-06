@@ -44,8 +44,17 @@ export interface SpatialMemory {
   lastVisited: Float32Array;
 }
 
+export interface GenealogyEntry {
+  id: number;
+  parentId: number | null;
+  type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
+  generation: number;
+  birthTime: number;
+}
+
 export interface Agent {
   id: number;
+  parentId: number | null;
   pos: Vec2;
   vel: Vec2;
   energy: number;
@@ -200,6 +209,7 @@ export interface SimState {
   insectTraitMemory: InsectTraits[];
   reintroductionTime: number;
   recentDeaths: Map<number, string>; // id -> deathCause for inspector
+  genealogy: Map<number, GenealogyEntry>; // limited registry of parent-child relationships
 }
 
 export interface SimStats {

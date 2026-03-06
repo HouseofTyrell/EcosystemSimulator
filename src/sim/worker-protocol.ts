@@ -28,6 +28,15 @@ export interface CreatureSnapshot {
   deathCause: 'starved' | 'killed' | 'old_age' | 'disease' | null;
   attackTimer?: number;
   attackCooldown?: number;
+  parentId: number | null;
+}
+
+export interface GenealogySnapshot {
+  id: number;
+  parentId: number | null;
+  type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
+  generation: number;
+  birthTime: number;
 }
 
 export interface RenderSnapshot {
@@ -49,6 +58,7 @@ export interface RenderSnapshot {
   lineageCounts: [number, number][];
   recentDeaths: [number, string][];
   config: SimConfig;
+  genealogy: GenealogySnapshot[];
 }
 
 export type MainToWorkerMessage =
@@ -57,8 +67,13 @@ export type MainToWorkerMessage =
   | { type: 'reset'; seed?: number }
   | { type: 'setConfig'; key: string; value: number | boolean }
   | { type: 'setWorldSize'; width: number; height: number }
-  | { type: 'setPopCaps'; maxHerbivores: number; maxPredators: number; maxScavengers: number; maxInsects: number };
+  | { type: 'setPopCaps'; maxHerbivores: number; maxPredators: number; maxScavengers: number; maxInsects: number }
+  | { type: 'paintTerrain'; cells: { col: number; row: number; terrain: number }[] }
+  | { type: 'spawnCreature'; creatureType: 'herbivore' | 'predator' | 'scavenger' | 'insect'; x: number; y: number; count: number }
+  | { type: 'saveState' }
+  | { type: 'loadState'; data: object };
 
 export type WorkerToMainMessage =
   | { type: 'snapshot'; data: RenderSnapshot }
-  | { type: 'ready'; config: SimConfig };
+  | { type: 'ready'; config: SimConfig }
+  | { type: 'stateData'; data: object };

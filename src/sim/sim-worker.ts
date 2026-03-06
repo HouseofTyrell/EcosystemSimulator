@@ -33,6 +33,7 @@ function creatureToSnapshot(c: Herbivore | Predator | Scavenger | Insect): Creat
     homeBaseY: c.homeBase ? c.homeBase.y : c.birthPos.y,
     offspringCount: c.offspringCount,
     deathCause: c.deathCause,
+    parentId: c.parentId ?? null,
   };
   if (c.type === 'predator') {
     snap.attackTimer = (c as Predator).attackTimer;
@@ -77,6 +78,7 @@ function buildSnapshot(): RenderSnapshot {
     lineageCounts: Array.from(state.lineageCounts.entries()),
     recentDeaths: Array.from(state.recentDeaths.entries()),
     config: { ...state.config },
+    genealogy: Array.from(state.genealogy.values()),
   };
 }
 
@@ -128,6 +130,28 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
       sim.state.config.maxPredators = msg.maxPredators;
       sim.state.config.maxScavengers = msg.maxScavengers;
       sim.state.config.maxInsects = msg.maxInsects;
+      break;
+    }
+    case 'paintTerrain': {
+      if (!sim) return;
+      sim.paintTerrain(msg.cells);
+      break;
+    }
+    case 'spawnCreature': {
+      if (!sim) return;
+      sim.spawnCreatures(msg.creatureType, msg.x, msg.y, msg.count);
+      break;
+    }
+    case 'saveState': {
+      if (!sim) return;
+      const stateData = sim.serialize();
+      (self as unknown as Worker).postMessage({ type: 'stateData', data: stateData });
+      break;
+    }
+    case 'loadState': {
+      if (!sim) return;
+      sim.deserialize(msg.data as Record<string, unknown>);
+      (self as unknown as Worker).postMessage({ type: 'ready', config: { ...sim.state.config } });
       break;
     }
   }

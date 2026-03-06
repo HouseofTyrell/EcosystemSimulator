@@ -47,4 +47,14 @@ export class SeededRNG {
     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     return mean + z * stddev;
   }
+
+  getState(): number[] {
+    return Array.from(this.s);
+  }
+
+  setState(state: number[]): void {
+    for (let i = 0; i < 4; i++) {
+      this.s[i] = state[i] >>> 0;
+    }
+  }
 }

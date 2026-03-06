@@ -11,9 +11,15 @@ import { Tooltip } from './ui/tooltip';
 import { Minimap } from './ui/minimap';
 import { AudioManager } from './audio/audio-manager';
 import { FoodChainDiagram } from './ui/food-chain';
+import { GenealogyPanel } from './ui/genealogy';
 import { clampAllPanels, makeDraggable } from './ui/draggable';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
+
+type ToolMode = 'none' | 'paint' | 'spawn';
+type TerrainBrush = 0 | 1 | 2 | 3; // normal, water, fertile, mountain
+type StampType = 'lake' | 'river' | 'mountainRange' | null;
+type SpawnType = 'herbivore' | 'predator' | 'scavenger' | 'insect';
 
 class App {
   private sim: SimWorkerClient;
@@ -23,6 +29,7 @@ class App {
   private inspector!: CreatureInspector;
   private feed!: EventFeed;
   private foodChain!: FoodChainDiagram;
+  private genealogy!: GenealogyPanel;
   private camera!: Camera;
   private tooltip!: Tooltip;
   private minimap!: Minimap;
@@ -40,8 +47,22 @@ class App {
   private fps: number = 0;
   private perfFactor: number = 1.0; // 1.0 = full caps, 0.0 = minimum caps
 
+  // Tool mode state
+  private toolMode: ToolMode = 'none';
+  private paintBrush: TerrainBrush = 1; // default: water
+  private paintRadius: number = 3; // 1, 3, or 5
+  private stampType: StampType = null;
+  private spawnType: SpawnType = 'herbivore';
+  private isPainting: boolean = false;
+  private toolbarEl: HTMLDivElement | null = null;
+  private cursorIndicator: HTMLDivElement | null = null;
+
   constructor() {
-    this.seed = Math.floor(Math.random() * 999999);
+    // Read seed from URL if present, otherwise random
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSeed = urlParams.get('seed');
+    this.seed = urlSeed ? parseInt(urlSeed, 10) : Math.floor(Math.random() * 999999);
+    if (isNaN(this.seed)) this.seed = Math.floor(Math.random() * 999999);
     this.sim = new SimWorkerClient({ seed: this.seed });
     this.renderer = new Renderer();
   }
@@ -76,6 +97,10 @@ class App {
       onSpeedChange: (s) => { this.speed = s; this.ui.updateSpeed(s); },
       onConfigChange: (key, value) => this.handleConfigChange(key, value),
       onResetCamera: () => this.camera.resetView(),
+      onSave: (slot) => this.saveToSlot(slot),
+      onLoad: (slot) => this.loadFromSlot(slot),
+      onExport: () => this.exportJSON(),
+      onImport: (data) => this.importJSON(data),
       isPaused: () => this.paused,
       getSpeed: () => this.speed,
       getSeed: () => this.seed,
@@ -83,6 +108,9 @@ class App {
 
     this.ui.updateSpeed(this.speed);
     this.ui.updateSeed(this.seed);
+
+    // Update URL with current seed (without reload)
+    this.updateURL();
 
     this.graph = new PopulationGraph(container);
     makeDraggable(this.graph.getPanel(), this.graph.getHeader());
@@ -92,6 +120,8 @@ class App {
     this.feed = new EventFeed(container);
 
     this.foodChain = new FoodChainDiagram(container);
+
+    this.genealogy = new GenealogyPanel(container);
 
     this.tooltip = new Tooltip(document.body);
 
@@ -103,7 +133,42 @@ class App {
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
       const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
+      // Tool modes intercept clicks
+      if (this.handleToolClick(worldX, worldY, e.shiftKey)) return;
       this.inspector.tryPin(this.sim.renderState as any, worldX, worldY);
+    });
+
+    // Paint mode: drag to paint
+    this.renderer.app.canvas.addEventListener('mousedown', (e) => {
+      if (this.toolMode === 'paint' && e.button === 0) {
+        this.isPainting = true;
+        const rect = this.renderer.app.canvas.getBoundingClientRect();
+        const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
+        const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
+        if (this.stampType) {
+          this.applyStamp(worldX, worldY);
+        } else {
+          this.paintAt(worldX, worldY);
+        }
+      }
+    });
+    this.renderer.app.canvas.addEventListener('mousemove', (e) => {
+      // Update cursor indicator position
+      if (this.cursorIndicator && this.toolMode === 'paint') {
+        this.updateCursorSize();
+        this.cursorIndicator.style.left = `${e.clientX}px`;
+        this.cursorIndicator.style.top = `${e.clientY}px`;
+      }
+      // Drag painting (only brush, not stamps)
+      if (this.isPainting && this.toolMode === 'paint' && !this.stampType) {
+        const rect = this.renderer.app.canvas.getBoundingClientRect();
+        const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
+        const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
+        this.paintAt(worldX, worldY);
+      }
+    });
+    window.addEventListener('mouseup', () => {
+      this.isPainting = false;
     });
 
     // Mouse wheel / trackpad zoom
@@ -152,11 +217,24 @@ class App {
         this.camera.resetView();
       } else if (e.code === 'KeyC') {
         this.camera.follow(this.inspector.pinnedIds[0] || null);
+      } else if (e.code === 'KeyP') {
+        this.setToolMode('paint');
+      } else if (e.code === 'KeyB') {
+        this.setToolMode('spawn');
+      } else if (e.code === 'Escape' && this.toolMode !== 'none') {
+        this.setToolMode('none');
       }
     });
 
     // Hover tooltip
     this.renderer.app.canvas.addEventListener('mousemove', (e) => {
+      // Skip tooltip in tool modes
+      if (this.toolMode !== 'none') {
+        this.tooltip.hide();
+        this.renderer.app.canvas.style.cursor = this.toolMode === 'paint' ? 'none' : 'crosshair';
+        return;
+      }
+
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
       const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
@@ -280,6 +358,14 @@ class App {
     this.foodChain.update(this.sim.renderState.stats);
     this.minimap.update(this.sim.renderState as any, this.camera.state);
 
+    // Genealogy: show when creature is pinned
+    if (this.inspector.pinnedIds.length > 0 && !this.genealogy.isVisible()) {
+      this.genealogy.show(this.inspector.pinnedIds[0]);
+    } else if (this.inspector.pinnedIds.length === 0 && this.genealogy.isVisible()) {
+      this.genealogy.hide();
+    }
+    this.genealogy.update(this.sim.renderState.genealogy, this.inspector.pinnedIds);
+
     // Audio: update ambient drone and rain
     this.audio.updateAmbient(this.sim.renderState.season, this.sim.renderState.dayPhase);
     const rainIntensity = this.sim.renderState.weather.type === 'rain' ? this.sim.renderState.weather.intensity : 0;
@@ -311,6 +397,82 @@ class App {
     this.lastFeedCount = 0;
     this.camera.resetView();
     this.renderer.setTrails(this.trails); // Clear trails on reset
+    this.updateURL();
+  }
+
+  private updateURL(): void {
+    const url = new URL(window.location.href);
+    url.searchParams.set('seed', String(this.seed));
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  private async saveToSlot(slot: number): Promise<void> {
+    const wasPaused = this.paused;
+    this.paused = true;
+    try {
+      const data = await this.sim.requestSave();
+      const json = JSON.stringify(data);
+      localStorage.setItem(`sim-save-slot-${slot}`, json);
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+    if (!wasPaused) this.paused = false;
+  }
+
+  private loadFromSlot(slot: number): void {
+    const json = localStorage.getItem(`sim-save-slot-${slot}`);
+    if (!json) {
+      console.warn(`No save data in slot ${slot}`);
+      return;
+    }
+    try {
+      const data = JSON.parse(json);
+      this.importJSON(data);
+    } catch (e) {
+      console.error('Load failed:', e);
+    }
+  }
+
+  private async exportJSON(): Promise<void> {
+    const wasPaused = this.paused;
+    this.paused = true;
+    try {
+      const data = await this.sim.requestSave();
+      const json = JSON.stringify(data);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ecosystem-save-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export failed:', e);
+    }
+    if (!wasPaused) this.paused = false;
+  }
+
+  private importJSON(data: object): void {
+    this.paused = true;
+    this.ui.updatePaused(true);
+    this.sim.loadState(data);
+    this.accumulator = 0;
+    this.graph.reset();
+    this.inspector.clearAll();
+    this.feed.reset();
+    this.lastFeedCount = 0;
+    // Update seed from loaded config if available
+    const loaded = data as Record<string, any>;
+    if (loaded.config?.seed !== undefined) {
+      this.seed = loaded.config.seed;
+      this.ui.updateSeed(this.seed);
+      this.updateURL();
+    }
+    // Resume after a short delay to allow state to apply
+    setTimeout(() => {
+      this.paused = false;
+      this.ui.updatePaused(false);
+    }, 100);
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {
@@ -392,6 +554,243 @@ class App {
     }
 
     this.sim.setConfig(key, value);
+  }
+
+  // --- Tool Modes ---
+
+  private setToolMode(mode: ToolMode): void {
+    // If same mode, toggle off
+    if (this.toolMode === mode) {
+      mode = 'none';
+    }
+    this.toolMode = mode;
+    this.isPainting = false;
+    this.stampType = null;
+
+    // Remove existing toolbar
+    if (this.toolbarEl) {
+      this.toolbarEl.remove();
+      this.toolbarEl = null;
+    }
+    // Remove cursor indicator
+    if (this.cursorIndicator) {
+      this.cursorIndicator.remove();
+      this.cursorIndicator = null;
+    }
+
+    if (mode === 'paint') {
+      this.buildPaintToolbar();
+      this.buildCursorIndicator();
+    } else if (mode === 'spawn') {
+      this.buildSpawnToolbar();
+    }
+  }
+
+  private buildPaintToolbar(): void {
+    const bar = document.createElement('div');
+    bar.id = 'tool-toolbar';
+    bar.className = 'tool-toolbar';
+    bar.innerHTML = `
+      <div class="tool-toolbar-title">Paint Terrain <span class="tool-close">&times;</span></div>
+      <div class="tool-toolbar-row">
+        <button class="tool-btn ${this.paintBrush === 1 ? 'active' : ''}" data-brush="1">Water</button>
+        <button class="tool-btn ${this.paintBrush === 2 ? 'active' : ''}" data-brush="2">Fertile</button>
+        <button class="tool-btn ${this.paintBrush === 3 ? 'active' : ''}" data-brush="3">Mountain</button>
+        <button class="tool-btn ${this.paintBrush === 0 ? 'active' : ''}" data-brush="0">Erase</button>
+      </div>
+      <div class="tool-toolbar-row">
+        <label class="tool-label">Brush</label>
+        <button class="tool-btn tool-size ${this.paintRadius === 1 ? 'active' : ''}" data-size="1">S</button>
+        <button class="tool-btn tool-size ${this.paintRadius === 3 ? 'active' : ''}" data-size="3">M</button>
+        <button class="tool-btn tool-size ${this.paintRadius === 5 ? 'active' : ''}" data-size="5">L</button>
+      </div>
+      <div class="tool-toolbar-row">
+        <label class="tool-label">Stamp</label>
+        <button class="tool-btn tool-stamp" data-stamp="lake">Lake</button>
+        <button class="tool-btn tool-stamp" data-stamp="river">River</button>
+        <button class="tool-btn tool-stamp" data-stamp="mountainRange">Mtn Range</button>
+      </div>
+    `;
+    document.body.appendChild(bar);
+    this.toolbarEl = bar;
+
+    // Close button
+    bar.querySelector('.tool-close')!.addEventListener('click', () => this.setToolMode('none'));
+
+    // Brush type buttons
+    bar.querySelectorAll('[data-brush]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.paintBrush = parseInt((btn as HTMLElement).dataset.brush!) as TerrainBrush;
+        this.stampType = null;
+        bar.querySelectorAll('[data-brush]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        bar.querySelectorAll('.tool-stamp').forEach(b => b.classList.remove('active'));
+      });
+    });
+
+    // Size buttons
+    bar.querySelectorAll('[data-size]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.paintRadius = parseInt((btn as HTMLElement).dataset.size!);
+        this.stampType = null;
+        bar.querySelectorAll('.tool-size').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        bar.querySelectorAll('.tool-stamp').forEach(b => b.classList.remove('active'));
+        this.updateCursorSize();
+      });
+    });
+
+    // Stamp buttons
+    bar.querySelectorAll('.tool-stamp').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.stampType = (btn as HTMLElement).dataset.stamp as StampType;
+        bar.querySelectorAll('.tool-stamp').forEach(b => b.classList.remove('active'));
+        bar.querySelectorAll('[data-brush]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+
+  private buildSpawnToolbar(): void {
+    const bar = document.createElement('div');
+    bar.id = 'tool-toolbar';
+    bar.className = 'tool-toolbar';
+    bar.innerHTML = `
+      <div class="tool-toolbar-title">Spawn Creatures <span class="tool-close">&times;</span></div>
+      <div class="tool-toolbar-row">
+        <button class="tool-btn spawn-btn ${this.spawnType === 'herbivore' ? 'active' : ''}" data-spawn="herbivore">Herb</button>
+        <button class="tool-btn spawn-btn ${this.spawnType === 'predator' ? 'active' : ''}" data-spawn="predator">Pred</button>
+        <button class="tool-btn spawn-btn ${this.spawnType === 'scavenger' ? 'active' : ''}" data-spawn="scavenger">Scav</button>
+        <button class="tool-btn spawn-btn ${this.spawnType === 'insect' ? 'active' : ''}" data-spawn="insect">Insect</button>
+      </div>
+      <div class="tool-toolbar-hint">Click = 1 | Shift+Click = 5</div>
+    `;
+    document.body.appendChild(bar);
+    this.toolbarEl = bar;
+
+    bar.querySelector('.tool-close')!.addEventListener('click', () => this.setToolMode('none'));
+
+    bar.querySelectorAll('.spawn-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.spawnType = (btn as HTMLElement).dataset.spawn as SpawnType;
+        bar.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+
+  private buildCursorIndicator(): void {
+    const el = document.createElement('div');
+    el.id = 'paint-cursor';
+    el.className = 'paint-cursor';
+    document.body.appendChild(el);
+    this.cursorIndicator = el;
+    this.updateCursorSize();
+  }
+
+  private updateCursorSize(): void {
+    if (!this.cursorIndicator) return;
+    // Calculate pixel size based on brush radius and zoom
+    const config = this.sim.renderState.config;
+    const cellW = config.worldWidth / config.plantGridCols;
+    const pixelR = this.paintRadius * cellW * this.camera.state.zoom;
+    const size = pixelR * 2;
+    this.cursorIndicator.style.width = `${size}px`;
+    this.cursorIndicator.style.height = `${size}px`;
+  }
+
+  private handleToolClick(worldX: number, worldY: number, shiftKey: boolean): boolean {
+    if (this.toolMode === 'paint') {
+      if (this.stampType) {
+        this.applyStamp(worldX, worldY);
+      } else {
+        this.paintAt(worldX, worldY);
+      }
+      return true;
+    }
+    if (this.toolMode === 'spawn') {
+      const count = shiftKey ? 5 : 1;
+      this.sim.spawnCreature(this.spawnType, worldX, worldY, count);
+      return true;
+    }
+    return false;
+  }
+
+  private paintAt(worldX: number, worldY: number): void {
+    const config = this.sim.renderState.config;
+    const cellW = config.worldWidth / config.plantGridCols;
+    const cellH = config.worldHeight / config.plantGridRows;
+    const col = Math.floor(worldX / cellW);
+    const row = Math.floor(worldY / cellH);
+
+    const cells: { col: number; row: number; terrain: number }[] = [];
+    const r = this.paintRadius;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy <= r * r) {
+          cells.push({ col: col + dx, row: row + dy, terrain: this.paintBrush });
+        }
+      }
+    }
+    if (cells.length > 0) {
+      this.sim.paintTerrain(cells);
+    }
+  }
+
+  private applyStamp(worldX: number, worldY: number): void {
+    const config = this.sim.renderState.config;
+    const cellW = config.worldWidth / config.plantGridCols;
+    const cellH = config.worldHeight / config.plantGridRows;
+    const col = Math.floor(worldX / cellW);
+    const row = Math.floor(worldY / cellH);
+    const cells: { col: number; row: number; terrain: number }[] = [];
+
+    if (this.stampType === 'lake') {
+      // Oval lake ~12x10 cells
+      for (let dy = -5; dy <= 5; dy++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          if ((dx * dx) / 36 + (dy * dy) / 25 <= 1) {
+            cells.push({ col: col + dx, row: row + dy, terrain: 1 }); // water
+          }
+        }
+      }
+      // Fertile border
+      for (let dy = -7; dy <= 7; dy++) {
+        for (let dx = -8; dx <= 8; dx++) {
+          if ((dx * dx) / 64 + (dy * dy) / 49 <= 1 && (dx * dx) / 36 + (dy * dy) / 25 > 1) {
+            cells.push({ col: col + dx, row: row + dy, terrain: 2 }); // fertile
+          }
+        }
+      }
+    } else if (this.stampType === 'river') {
+      // Winding river ~40 cells long, 2-3 wide
+      let cx = col - 20;
+      let cy = row;
+      for (let i = 0; i < 40; i++) {
+        const wobble = Math.round(Math.sin(i * 0.3) * 2);
+        for (let w = -1; w <= 1; w++) {
+          cells.push({ col: cx + i, row: cy + wobble + w, terrain: 1 });
+        }
+        // Fertile banks
+        cells.push({ col: cx + i, row: cy + wobble - 2, terrain: 2 });
+        cells.push({ col: cx + i, row: cy + wobble + 2, terrain: 2 });
+      }
+    } else if (this.stampType === 'mountainRange') {
+      // Mountain ridge ~30 cells long, 3-5 wide
+      let cx = col - 15;
+      let cy = row;
+      for (let i = 0; i < 30; i++) {
+        const wobble = Math.round(Math.sin(i * 0.2) * 1.5);
+        const width = 2 + Math.round(Math.sin(i * 0.4) * 1);
+        for (let w = -width; w <= width; w++) {
+          cells.push({ col: cx + i, row: cy + wobble + w, terrain: 3 }); // mountain
+        }
+      }
+    }
+
+    if (cells.length > 0) {
+      this.sim.paintTerrain(cells);
+    }
   }
 }
 

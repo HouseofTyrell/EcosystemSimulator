@@ -208,6 +208,7 @@ export function createHerbivore(
   return {
     type: 'herbivore',
     id,
+    parentId: null,
     pos: { x, y },
     vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
     energy: 60,
@@ -262,6 +263,7 @@ export function createPredator(
   return {
     type: 'predator',
     id,
+    parentId: null,
     pos: { x, y },
     vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
     energy: 80,
@@ -316,6 +318,7 @@ export function createScavenger(
   return {
     type: 'scavenger',
     id,
+    parentId: null,
     pos: { x, y },
     vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
     energy: 50,
@@ -369,6 +372,7 @@ export function createInsect(
   return {
     type: 'insect',
     id,
+    parentId: null,
     pos: { x, y },
     vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
     energy: 30,
@@ -1291,6 +1295,7 @@ export function updateHerbivores(
         child.energy = config.herbivoreReproductionCost * 0.6;
         child.lineageId = h.lineageId;
         child.generation = Math.max(h.generation, mate.generation) + 1;
+        child.parentId = h.id;
         events.push({ type: 'birth', creatureType: 'herbivore', x: child.pos.x, y: child.pos.y });
         newborns.push(child);
         state.herbTraitMemory.push({ ...blendedTraits });
@@ -1526,6 +1531,7 @@ export function updatePredators(
         child.energy = config.predatorReproductionCost * 0.6;
         child.lineageId = p.lineageId;
         child.generation = Math.max(p.generation, mate.generation) + 1;
+        child.parentId = p.id;
         events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
         newborns.push(child);
         state.predTraitMemory.push({ ...blendedTraits });
@@ -1548,6 +1554,7 @@ export function updatePredators(
         child.energy = config.predatorReproductionCost * 0.5;
         child.lineageId = p.lineageId;
         child.generation = p.generation + 1;
+        child.parentId = p.id;
         events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
         newborns.push(child);
       }
@@ -1746,6 +1753,7 @@ export function updateScavengers(
         child.energy = config.scavengerReproductionCost * 0.6;
         child.lineageId = s.lineageId;
         child.generation = Math.max(s.generation, mate.generation) + 1;
+        child.parentId = s.id;
         events.push({ type: 'birth', creatureType: 'scavenger', x: child.pos.x, y: child.pos.y });
         newborns.push(child);
         state.scavTraitMemory.push({ ...blendedTraits });
@@ -1917,6 +1925,7 @@ export function updateInsects(
         child.energy = config.insectReproductionCost * 0.6;
         child.lineageId = ins.lineageId;
         child.generation = Math.max(ins.generation, mate.generation) + 1;
+        child.parentId = ins.id;
         events.push({ type: 'birth', creatureType: 'insect', x: child.pos.x, y: child.pos.y });
         newborns.push(child);
         state.insectTraitMemory.push({ ...blendedTraits });
