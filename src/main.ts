@@ -56,6 +56,7 @@ class App {
   private isPainting: boolean = false;
   private toolbarEl: HTMLDivElement | null = null;
   private cursorIndicator: HTMLDivElement | null = null;
+  private genealogyEnabled: boolean = false;
 
   constructor() {
     // Read seed from URL if present, otherwise random
@@ -101,6 +102,7 @@ class App {
       onLoad: (slot) => this.loadFromSlot(slot),
       onExport: () => this.exportJSON(),
       onImport: (data) => this.importJSON(data),
+      onToolMode: (mode) => this.setToolMode(mode as ToolMode),
       isPaused: () => this.paused,
       getSpeed: () => this.speed,
       getSeed: () => this.seed,
@@ -358,13 +360,15 @@ class App {
     this.foodChain.update(this.sim.renderState.stats);
     this.minimap.update(this.sim.renderState as any, this.camera.state);
 
-    // Genealogy: show when creature is pinned
-    if (this.inspector.pinnedIds.length > 0 && !this.genealogy.isVisible()) {
+    // Genealogy: only show when enabled AND creature is pinned
+    if (this.genealogyEnabled && this.inspector.pinnedIds.length > 0 && !this.genealogy.isVisible()) {
       this.genealogy.show(this.inspector.pinnedIds[0]);
-    } else if (this.inspector.pinnedIds.length === 0 && this.genealogy.isVisible()) {
+    } else if ((!this.genealogyEnabled || this.inspector.pinnedIds.length === 0) && this.genealogy.isVisible()) {
       this.genealogy.hide();
     }
-    this.genealogy.update(this.sim.renderState.genealogy, this.inspector.pinnedIds);
+    if (this.genealogyEnabled) {
+      this.genealogy.update(this.sim.renderState.genealogy, this.inspector.pinnedIds);
+    }
 
     // Audio: update ambient drone and rain
     this.audio.updateAmbient(this.sim.renderState.season, this.sim.renderState.dayPhase);
@@ -545,6 +549,12 @@ class App {
     if (key === 'foodweb') {
       this.foodChain.toggle();
       this.ui.syncToggle('foodweb', this.foodChain.isVisible());
+      return;
+    }
+
+    if (key === 'genealogy') {
+      this.genealogyEnabled = value as boolean;
+      if (!this.genealogyEnabled) this.genealogy.hide();
       return;
     }
 

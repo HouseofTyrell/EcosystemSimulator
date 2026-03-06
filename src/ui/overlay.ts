@@ -15,6 +15,7 @@ export interface UICallbacks {
   onLoad: (slot: number) => void;
   onExport: () => void;
   onImport: (data: object) => void;
+  onToolMode: (mode: string) => void;
   isPaused: () => boolean;
   getSpeed: () => number;
   getSeed: () => number;
@@ -59,8 +60,34 @@ export class UIOverlay {
     this.seedEl.id = 'seed-display';
     this.bottomStatus.appendChild(this.seedEl);
 
+    // Separator
+    const sep1 = document.createElement('div');
+    sep1.className = 'status-sep';
+    this.bottomStatus.appendChild(sep1);
+
+    // Tool buttons - visible entry points for paint/spawn
+    const paintBtn = document.createElement('button');
+    paintBtn.className = 'status-tool-btn';
+    paintBtn.id = 'status-paint-btn';
+    paintBtn.textContent = 'Paint';
+    paintBtn.title = 'Paint terrain (P)';
+    paintBtn.addEventListener('click', () => callbacks.onToolMode('paint'));
+    this.bottomStatus.appendChild(paintBtn);
+
+    const spawnBtn = document.createElement('button');
+    spawnBtn.className = 'status-tool-btn';
+    spawnBtn.id = 'status-spawn-btn';
+    spawnBtn.textContent = 'Spawn';
+    spawnBtn.title = 'Spawn creatures (B)';
+    spawnBtn.addEventListener('click', () => callbacks.onToolMode('spawn'));
+    this.bottomStatus.appendChild(spawnBtn);
+
+    const sep2 = document.createElement('div');
+    sep2.className = 'status-sep';
+    this.bottomStatus.appendChild(sep2);
+
     const shareBtn = document.createElement('button');
-    shareBtn.id = 'share-btn';
+    shareBtn.className = 'status-tool-btn';
     shareBtn.textContent = 'Share';
     shareBtn.addEventListener('click', () => {
       const url = new URL(window.location.href);
@@ -73,8 +100,8 @@ export class UIOverlay {
     this.bottomStatus.appendChild(shareBtn);
 
     const resetCamBtn = document.createElement('button');
-    resetCamBtn.id = 'reset-camera-btn';
-    resetCamBtn.textContent = 'Reset Camera';
+    resetCamBtn.className = 'status-tool-btn';
+    resetCamBtn.textContent = 'Reset View';
     resetCamBtn.addEventListener('click', () => callbacks.onResetCamera());
     this.bottomStatus.appendChild(resetCamBtn);
 
@@ -141,146 +168,180 @@ export class UIOverlay {
         <span class="toggle-icon">+</span>
       </div>
       <div class="settings-body">
-        <div class="settings-section-label">Display</div>
-        <div class="setting-toggle-row">
-          <label>Stats</label>
-          <input type="checkbox" checked data-toggle="stats" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Trails</label>
-          <input type="checkbox" data-toggle="trails" />
-        </div>
-        <div class="setting-row">
-          <label>Trail Fade</label>
-          <input type="range" min="1" max="20" value="3" data-key="trailFade" data-scale="0.01" />
-          <span class="val">0.03</span>
-        </div>
-        <div class="setting-toggle-row">
-          <label>Graph</label>
-          <input type="checkbox" checked data-toggle="graph" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Trait Sparklines</label>
-          <input type="checkbox" data-toggle="traits" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Event Feed</label>
-          <input type="checkbox" checked data-toggle="feed" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Food Web</label>
-          <input type="checkbox" data-toggle="foodweb" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Help</label>
-          <input type="checkbox" data-toggle="help" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Territories</label>
-          <input type="checkbox" checked data-toggle="territories" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Day/Night</label>
-          <input type="checkbox" checked data-toggle="daynight" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Weather</label>
-          <input type="checkbox" checked data-toggle="weather" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>World Wrap</label>
-          <input type="checkbox" data-toggle="wrapWorld" />
-        </div>
-        <div class="setting-toggle-row">
-          <label>Sound</label>
-          <input type="checkbox" data-toggle="sound" />
-        </div>
-        <div class="setting-row">
-          <label>World Size</label>
-          <select data-key="worldSize">
-            <option value="small">Small (2000)</option>
-            <option value="medium" selected>Medium (4000)</option>
-            <option value="large">Large (6000)</option>
-          </select>
-        </div>
-        <div class="settings-divider"></div>
-        <div class="settings-section-label">Simulation</div>
-        <div class="setting-row">
-          <label>Mutation Rate</label>
-          <input type="range" min="0" max="40" value="10" data-key="mutationRate" data-scale="0.01" />
-          <span class="val">0.10</span>
-        </div>
-        <div class="setting-row">
-          <label>Season Strength</label>
-          <input type="range" min="0" max="80" value="40" data-key="seasonalStrength" data-scale="0.01" />
-          <span class="val">0.40</span>
-        </div>
-        <div class="setting-row">
-          <label>Plant Growth</label>
-          <input type="range" min="5" max="100" value="35" data-key="plantGrowthRate" data-scale="0.01" />
-          <span class="val">0.35</span>
-        </div>
-        <div class="setting-row">
-          <label>Big Mutations</label>
-          <input type="range" min="0" max="1" value="0" data-key="bigMutationEnabled" data-scale="1" data-bool="true" />
-          <span class="val">Off</span>
-        </div>
-        <div class="settings-divider"></div>
-        <div class="settings-section-label">Balance</div>
-        <div class="setting-row">
-          <label>Herb Repro Energy</label>
-          <input type="range" min="40" max="160" value="80" data-key="herbivoreReproductionEnergy" data-scale="1" />
-          <span class="val">80</span>
-        </div>
-        <div class="setting-row">
-          <label>Pred Repro Energy</label>
-          <input type="range" min="50" max="200" value="100" data-key="predatorReproductionEnergy" data-scale="1" />
-          <span class="val">100</span>
-        </div>
-        <div class="setting-row">
-          <label>Scav Repro Energy</label>
-          <input type="range" min="30" max="120" value="60" data-key="scavengerReproductionEnergy" data-scale="1" />
-          <span class="val">60</span>
-        </div>
-        <div class="setting-row">
-          <label>Pred Attack Energy</label>
-          <input type="range" min="20" max="80" value="40" data-key="predatorAttackEnergy" data-scale="1" />
-          <span class="val">40</span>
-        </div>
-        <div class="setting-row">
-          <label>Herb Max Age</label>
-          <input type="range" min="30" max="300" value="120" data-key="herbivoreMaxAge" data-scale="1" />
-          <span class="val">120</span>
-        </div>
-        <div class="setting-row">
-          <label>Pred Max Age</label>
-          <input type="range" min="25" max="250" value="100" data-key="predatorMaxAge" data-scale="1" />
-          <span class="val">100</span>
-        </div>
-        <div class="settings-divider"></div>
-        <div class="settings-section-label">Save / Load</div>
-        <div class="save-load-slots">
-          <div class="save-slot-row">
-            <span class="slot-label">Slot 1</span>
-            <button class="sl-btn" data-action="save" data-slot="1">Save</button>
-            <button class="sl-btn" data-action="load" data-slot="1">Load</button>
+
+        <div class="settings-section" data-section="view">
+          <div class="settings-section-header">
+            <span>View</span>
+            <span class="section-toggle">\u25BE</span>
           </div>
-          <div class="save-slot-row">
-            <span class="slot-label">Slot 2</span>
-            <button class="sl-btn" data-action="save" data-slot="2">Save</button>
-            <button class="sl-btn" data-action="load" data-slot="2">Load</button>
-          </div>
-          <div class="save-slot-row">
-            <span class="slot-label">Slot 3</span>
-            <button class="sl-btn" data-action="save" data-slot="3">Save</button>
-            <button class="sl-btn" data-action="load" data-slot="3">Load</button>
+          <div class="settings-section-content">
+            <div class="setting-toggle-row">
+              <label>Stats Panel</label>
+              <input type="checkbox" checked data-toggle="stats" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Population Graph</label>
+              <input type="checkbox" checked data-toggle="graph" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Trait Sparklines</label>
+              <input type="checkbox" data-toggle="traits" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Event Feed</label>
+              <input type="checkbox" checked data-toggle="feed" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Food Web</label>
+              <input type="checkbox" data-toggle="foodweb" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Genealogy Tree</label>
+              <input type="checkbox" data-toggle="genealogy" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Territories</label>
+              <input type="checkbox" checked data-toggle="territories" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Trails</label>
+              <input type="checkbox" data-toggle="trails" />
+            </div>
+            <div class="setting-row">
+              <label>Trail Fade</label>
+              <input type="range" min="1" max="20" value="3" data-key="trailFade" data-scale="0.01" />
+              <span class="val">0.03</span>
+            </div>
+            <div class="setting-toggle-row">
+              <label>Day/Night Cycle</label>
+              <input type="checkbox" checked data-toggle="daynight" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Weather Effects</label>
+              <input type="checkbox" checked data-toggle="weather" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Sound</label>
+              <input type="checkbox" data-toggle="sound" />
+            </div>
+            <div class="setting-toggle-row">
+              <label>Keyboard Help</label>
+              <input type="checkbox" data-toggle="help" />
+            </div>
           </div>
         </div>
-        <div class="save-slot-row" style="margin-top:6px;">
-          <button class="sl-btn sl-wide" data-action="export">Export JSON</button>
-          <button class="sl-btn sl-wide" data-action="import">Import JSON</button>
-          <input type="file" accept=".json" class="sl-file-input" style="display:none" />
+
+        <div class="settings-section" data-section="world">
+          <div class="settings-section-header">
+            <span>World</span>
+            <span class="section-toggle">\u25B8</span>
+          </div>
+          <div class="settings-section-content collapsed-section">
+            <div class="setting-row">
+              <label>World Size</label>
+              <select data-key="worldSize">
+                <option value="small">Small (2000)</option>
+                <option value="medium" selected>Medium (4000)</option>
+                <option value="large">Large (6000)</option>
+              </select>
+            </div>
+            <div class="setting-toggle-row">
+              <label>World Wrap</label>
+              <input type="checkbox" data-toggle="wrapWorld" />
+            </div>
+            <div class="setting-row">
+              <label>Plant Growth</label>
+              <input type="range" min="5" max="100" value="35" data-key="plantGrowthRate" data-scale="0.01" />
+              <span class="val">0.35</span>
+            </div>
+            <div class="setting-row">
+              <label>Season Strength</label>
+              <input type="range" min="0" max="80" value="40" data-key="seasonalStrength" data-scale="0.01" />
+              <span class="val">0.40</span>
+            </div>
+            <div class="setting-row">
+              <label>Mutation Rate</label>
+              <input type="range" min="0" max="40" value="10" data-key="mutationRate" data-scale="0.01" />
+              <span class="val">0.10</span>
+            </div>
+            <div class="setting-row">
+              <label>Big Mutations</label>
+              <input type="range" min="0" max="1" value="0" data-key="bigMutationEnabled" data-scale="1" data-bool="true" />
+              <span class="val">Off</span>
+            </div>
+          </div>
         </div>
+
+        <div class="settings-section" data-section="balance">
+          <div class="settings-section-header">
+            <span>Balance</span>
+            <span class="section-toggle">\u25B8</span>
+          </div>
+          <div class="settings-section-content collapsed-section">
+            <div class="setting-row">
+              <label>Herb Repro Energy</label>
+              <input type="range" min="40" max="160" value="80" data-key="herbivoreReproductionEnergy" data-scale="1" />
+              <span class="val">80</span>
+            </div>
+            <div class="setting-row">
+              <label>Pred Repro Energy</label>
+              <input type="range" min="50" max="200" value="100" data-key="predatorReproductionEnergy" data-scale="1" />
+              <span class="val">100</span>
+            </div>
+            <div class="setting-row">
+              <label>Scav Repro Energy</label>
+              <input type="range" min="30" max="120" value="60" data-key="scavengerReproductionEnergy" data-scale="1" />
+              <span class="val">60</span>
+            </div>
+            <div class="setting-row">
+              <label>Pred Attack Energy</label>
+              <input type="range" min="20" max="80" value="40" data-key="predatorAttackEnergy" data-scale="1" />
+              <span class="val">40</span>
+            </div>
+            <div class="setting-row">
+              <label>Herb Max Age</label>
+              <input type="range" min="30" max="300" value="120" data-key="herbivoreMaxAge" data-scale="1" />
+              <span class="val">120</span>
+            </div>
+            <div class="setting-row">
+              <label>Pred Max Age</label>
+              <input type="range" min="25" max="250" value="100" data-key="predatorMaxAge" data-scale="1" />
+              <span class="val">100</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section" data-section="saveload">
+          <div class="settings-section-header">
+            <span>Save / Load</span>
+            <span class="section-toggle">\u25B8</span>
+          </div>
+          <div class="settings-section-content collapsed-section">
+            <div class="save-load-slots">
+              <div class="save-slot-row">
+                <span class="slot-label">Slot 1</span>
+                <button class="sl-btn" data-action="save" data-slot="1">Save</button>
+                <button class="sl-btn" data-action="load" data-slot="1">Load</button>
+              </div>
+              <div class="save-slot-row">
+                <span class="slot-label">Slot 2</span>
+                <button class="sl-btn" data-action="save" data-slot="2">Save</button>
+                <button class="sl-btn" data-action="load" data-slot="2">Load</button>
+              </div>
+              <div class="save-slot-row">
+                <span class="slot-label">Slot 3</span>
+                <button class="sl-btn" data-action="save" data-slot="3">Save</button>
+                <button class="sl-btn" data-action="load" data-slot="3">Load</button>
+              </div>
+            </div>
+            <div class="save-slot-row" style="margin-top:6px;">
+              <button class="sl-btn sl-wide" data-action="export">Export JSON</button>
+              <button class="sl-btn sl-wide" data-action="import">Import JSON</button>
+              <input type="file" accept=".json" class="sl-file-input" style="display:none" />
+            </div>
+          </div>
+        </div>
+
       </div>
     `;
 
@@ -291,6 +352,18 @@ export class UIOverlay {
       this.settingsEl.classList.toggle('collapsed', this.settingsCollapsed);
       const icon = this.settingsEl.querySelector('.toggle-icon')!;
       icon.textContent = this.settingsCollapsed ? '+' : '−';
+    });
+
+    // Sub-section toggles
+    this.settingsEl.querySelectorAll('.settings-section-header').forEach(sh => {
+      sh.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const section = (sh as HTMLElement).parentElement!;
+        const content = section.querySelector('.settings-section-content')!;
+        const arrow = section.querySelector('.section-toggle')!;
+        content.classList.toggle('collapsed-section');
+        arrow.textContent = content.classList.contains('collapsed-section') ? '\u25B8' : '\u25BE';
+      });
     });
 
     // Sliders
@@ -336,6 +409,8 @@ export class UIOverlay {
           cb.onConfigChange('trails', true);
         } else if (key === 'wrapWorld') {
           cb.onConfigChange('wrapWorld', el.checked);
+        } else if (key === 'genealogy') {
+          cb.onConfigChange('genealogy', el.checked);
         } else {
           // graph, traits, feed — handled by main via onConfigChange
           cb.onConfigChange(key, el.checked);
