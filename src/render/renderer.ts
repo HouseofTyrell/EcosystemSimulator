@@ -373,8 +373,8 @@ export class Renderer {
       sprite.rotation = Math.atan2(h.vel.y, h.vel.x);
 
       if (lowDetail) {
-        sprite.scale.set(h.traits.size * scaleX * 0.28);
-        sprite.alpha = 0.85;
+        sprite.scale.set(h.traits.size * scaleX * 0.4);
+        sprite.alpha = 1.0;
 
         if (selectedIds && selectedIds.includes(h.id)) {
           const baseScale = h.traits.size * scaleX * 0.28;
@@ -395,7 +395,7 @@ export class Renderer {
         // Age-based scale: young=0.6, old=0.9, else 1.0
         const ageRatio = h.age / h.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
-        const baseScale = h.traits.size * scaleX * 0.28 * ageSclMul;
+        const baseScale = h.traits.size * scaleX * 0.4 * ageSclMul;
         const velMagH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
         const flexPhaseH = (time * Math.max(velMagH, 0) * 0.12 + h.id * 0.3) % (Math.PI * 2);
         const flexAmountH = velMagH > 5 ? 0.08 : 0;
@@ -404,7 +404,7 @@ export class Renderer {
         sprite.scale.set(scaleXBody, scaleYBody);
 
         // Simplified matte alpha
-        sprite.alpha = h.energy < 25 ? Math.max(0.5, h.energy / 25) * 0.9 : 0.9;
+        sprite.alpha = h.energy < 25 ? Math.max(0.6, h.energy / 25) : 1.0;
 
         // Ground shadow
         const shadowH = this.shadowPool.acquire();
@@ -445,8 +445,8 @@ export class Renderer {
       sprite.rotation = Math.atan2(p.vel.y, p.vel.x);
 
       if (lowDetail) {
-        sprite.scale.set(p.traits.size * scaleX * 0.28);
-        sprite.alpha = 0.85;
+        sprite.scale.set(p.traits.size * scaleX * 0.4);
+        sprite.alpha = 1.0;
 
         if (selectedIds && selectedIds.includes(p.id)) {
           const baseScale = p.traits.size * scaleX * 0.28;
@@ -467,7 +467,7 @@ export class Renderer {
         // Age-based scale
         const ageRatio = p.age / p.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
-        const baseScale = p.traits.size * scaleX * 0.28 * ageSclMul;
+        const baseScale = p.traits.size * scaleX * 0.4 * ageSclMul;
         const velMagP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
         const flexPhaseP = (time * Math.max(velMagP, 0) * 0.12 + p.id * 0.3) % (Math.PI * 2);
         const flexAmountP = velMagP > 5 ? 0.10 : 0;
@@ -476,7 +476,7 @@ export class Renderer {
         sprite.scale.set(scaleXBodyP, scaleYBodyP);
 
         // Simplified matte alpha
-        sprite.alpha = p.energy < 25 ? Math.max(0.5, p.energy / 25) * 0.9 : 0.9;
+        sprite.alpha = p.energy < 25 ? Math.max(0.6, p.energy / 25) : 1.0;
 
         // Ground shadow
         const shadowP = this.shadowPool.acquire();
@@ -516,8 +516,8 @@ export class Renderer {
       sprite.rotation = Math.atan2(s.vel.y, s.vel.x);
 
       if (lowDetail) {
-        sprite.scale.set(s.traits.size * scaleX * 0.28);
-        sprite.alpha = 0.85;
+        sprite.scale.set(s.traits.size * scaleX * 0.4);
+        sprite.alpha = 1.0;
 
         if (selectedIds && selectedIds.includes(s.id)) {
           const baseScale = s.traits.size * scaleX * 0.28;
@@ -538,7 +538,7 @@ export class Renderer {
         // Age-based scale
         const ageRatio = s.age / s.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
-        const baseScale = s.traits.size * scaleX * 0.28 * ageSclMul;
+        const baseScale = s.traits.size * scaleX * 0.4 * ageSclMul;
         const velMagS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
         const flexPhaseS = (time * Math.max(velMagS, 0) * 0.12 + s.id * 0.3) % (Math.PI * 2);
         const flexAmountS = velMagS > 5 ? 0.08 : 0;
@@ -547,7 +547,7 @@ export class Renderer {
         sprite.scale.set(scaleXBodyS, scaleYBodyS);
 
         // Simplified matte alpha
-        sprite.alpha = s.energy < 25 ? Math.max(0.5, s.energy / 25) * 0.9 : 0.9;
+        sprite.alpha = s.energy < 25 ? Math.max(0.6, s.energy / 25) : 1.0;
 
         // Ground shadow
         const shadowS = this.shadowPool.acquire();
