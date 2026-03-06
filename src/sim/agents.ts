@@ -23,7 +23,7 @@ import { clampHerbTraits, clampPredTraits, clampScavTraits } from './subspecies'
 
 /** Density-dependent reproduction probability. Returns true if reproduction allowed. */
 function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
-  const softCap = hardCap * 0.5;
+  const softCap = hardCap * 0.6;
   if (currentPop >= hardCap) return false;
   const ratio = currentPop / softCap;
   const chance = Math.max(0, 1 - ratio * ratio);
@@ -1124,7 +1124,9 @@ export function updatePredators(
     const speedCostP = p.traits.speed * relSpeedP * relSpeedP * 0.008;
     const sizeCostP = p.traits.size * 0.12;
     const baseMetaP = p.traits.metabolism + p.traits.speed * Math.sqrt(p.traits.speed) * 0.001;
-    p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt;
+    // Low-population survival boost: reduced metabolism when population is struggling
+    const predPopFactor = state.predators.length < 15 ? 0.7 : 1.0;
+    p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt * predPopFactor;
 
     // Hunt: try to eat nearest herbivore (satiated predators skip attacking)
     if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 1.2) {
@@ -1140,7 +1142,7 @@ export function updatePredators(
           // Attack probability based on size/speed mismatch
           const speedAdv = (p.traits.speed - h.traits.speed) / (p.traits.speed || 1);
           const sizeAdv = (p.traits.size - h.traits.size) / (p.traits.size || 1);
-          const killChance = Math.max(0.1, Math.min(0.95, 0.5 + speedAdv * 0.3 + sizeAdv * 0.2));
+          const killChance = Math.max(0.15, Math.min(0.95, 0.55 + speedAdv * 0.3 + sizeAdv * 0.2));
 
           if (rng.next() < killChance) {
             h.alive = false;
@@ -1159,7 +1161,7 @@ export function updatePredators(
             p.energy += killEnergy;
           } else {
             // Failed attack — still costs energy
-            p.energy -= config.predatorAttackEnergy * 0.3;
+            p.energy -= config.predatorAttackEnergy * 0.15;
           }
           p.attackTimer = p.traits.attackCooldown;
           break;
@@ -1243,13 +1245,12 @@ export function updatePredators(
       densityReproChance(state.predators.length, config.maxPredators, rng)
     ) {
       const mateBuf: Predator[] = [];
-      predHash.query(p.pos, 60, mateBuf);
+      predHash.query(p.pos, 100, mateBuf);
       let mate: Predator | null = null;
       for (let mi = 0; mi < mateBuf.length; mi++) {
         const m = mateBuf[mi];
         if (m.id === p.id) continue;
-        if (m.subspecies !== p.subspecies) continue;
-        if (m.energy < config.predatorReproductionEnergy * 0.5) continue;
+        if (m.energy < config.predatorReproductionEnergy * 0.4) continue;
         if (m.reproductionCooldown > 0) continue;
         const mStage = m.age / m.maxAge;
         if (mStage < 0.15) continue;
@@ -1294,6 +1295,26 @@ export function updatePredators(
         newborns.push(child);
         state.predTraitMemory.push({ ...blendedTraits });
         if (state.predTraitMemory.length > 50) state.predTraitMemory.shift();
+      } else if (state.predators.length < 10 && p.energy > config.predatorReproductionEnergy * 1.5) {
+        // Solo reproduction when population is critically low (higher cost)
+        p.energy -= config.predatorReproductionCost;
+        p.reproductionCooldown = config.predatorReproductionCooldownTime * 1.5;
+        p.offspringCount++;
+
+        const child = createPredator(
+          state.nextId++,
+          p.pos.x + rng.range(-15, 15),
+          p.pos.y + rng.range(-15, 15),
+          rng,
+          config,
+          { ...p.traits },
+          p.subspecies
+        );
+        child.energy = config.predatorReproductionCost * 0.5;
+        child.lineageId = p.lineageId;
+        child.generation = p.generation + 1;
+        events.push({ type: 'birth', creatureType: 'predator', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
       }
     }
   }
@@ -1343,11 +1364,23 @@ export function updateScavengers(
       }
       const d2 = dx * dx + dy * dy;
       if (d2 < eatRange * eatRange && c.energy > 0) {
-        const eaten = Math.min(c.energy, 8 * dt);
+        const eaten = Math.min(c.energy, 12 * dt);
         c.energy -= eaten;
-        s.energy += eaten * 2;
+        s.energy += eaten * 2.5;
         break; // eat one corpse at a time
       }
+    }
+
+    // Fallback: nibble plants when starving (low efficiency)
+    if (s.energy < 25) {
+      const nibbled = eatPlant(
+        state.plantGrid,
+        s.pos.x,
+        s.pos.y,
+        config.herbivoreEatRate * 0.2 * dt,
+        config
+      );
+      s.energy += nibbled * 15;
     }
 
     // Steering

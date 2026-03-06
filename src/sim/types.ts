@@ -248,24 +248,24 @@ export const DEFAULT_CONFIG: SimConfig = {
   dayNightPeriod: 90, // 90s per full day cycle (2 cycles per season)
 
   initialHerbivores: 12,
-  herbivoreReproductionEnergy: 80,
-  herbivoreReproductionCost: 50,
-  herbivoreReproductionCooldownTime: 12,
-  herbivoreEatRate: 0.4,
-  herbivoreMaxAge: 120,
+  herbivoreReproductionEnergy: 85,
+  herbivoreReproductionCost: 55,
+  herbivoreReproductionCooldownTime: 14,
+  herbivoreEatRate: 0.35,
+  herbivoreMaxAge: 110,
 
-  initialPredators: 3,
-  predatorReproductionEnergy: 100,
-  predatorReproductionCost: 60,
-  predatorReproductionCooldownTime: 15,
-  predatorAttackEnergy: 50,
-  predatorMaxAge: 100,
+  initialPredators: 6,
+  predatorReproductionEnergy: 65,
+  predatorReproductionCost: 35,
+  predatorReproductionCooldownTime: 8,
+  predatorAttackEnergy: 60,
+  predatorMaxAge: 120,
 
-  initialScavengers: 5,
-  scavengerReproductionEnergy: 60,
+  initialScavengers: 6,
+  scavengerReproductionEnergy: 55,
   scavengerReproductionCost: 35,
   scavengerReproductionCooldownTime: 10,
-  scavengerMaxAge: 90,
+  scavengerMaxAge: 95,
 
   mutationRate: 0.1,
   bigMutationEnabled: false,
@@ -275,7 +275,7 @@ export const DEFAULT_CONFIG: SimConfig = {
 
   wrapWorld: false,
 
-  maxHerbivores: 800,
-  maxPredators: 250,
-  maxScavengers: 150,
+  maxHerbivores: 500,
+  maxPredators: 150,
+  maxScavengers: 120,
 };

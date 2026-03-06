@@ -318,10 +318,10 @@ export class Simulation {
         state.corpses.push({
           x: h.pos.x,
           y: h.pos.y,
-          energy: Math.max(10, h.traits.size * Math.max(h.energy, 5) * 0.15),
+          energy: Math.max(15, h.traits.size * 8 + Math.max(h.energy, 0) * 0.2),
           creatureType: 'herbivore',
-          decayTimer: 15,
-          maxDecay: 15,
+          decayTimer: 20,
+          maxDecay: 20,
         });
       }
     }
@@ -331,10 +331,10 @@ export class Simulation {
         state.corpses.push({
           x: p.pos.x,
           y: p.pos.y,
-          energy: Math.max(10, p.traits.size * Math.max(p.energy, 5) * 0.15),
+          energy: Math.max(15, p.traits.size * 8 + Math.max(p.energy, 0) * 0.2),
           creatureType: 'predator',
-          decayTimer: 15,
-          maxDecay: 15,
+          decayTimer: 20,
+          maxDecay: 20,
         });
       }
     }
@@ -344,10 +344,10 @@ export class Simulation {
         state.corpses.push({
           x: s.pos.x,
           y: s.pos.y,
-          energy: Math.max(10, s.traits.size * Math.max(s.energy, 5) * 0.15),
+          energy: Math.max(15, s.traits.size * 8 + Math.max(s.energy, 0) * 0.2),
           creatureType: 'scavenger',
-          decayTimer: 15,
-          maxDecay: 15,
+          decayTimer: 20,
+          maxDecay: 20,
         });
       }
     }
@@ -383,34 +383,39 @@ export class Simulation {
       }
       state.reintroductionTime = state.time;
     }
-    if (state.predators.length === 0 && state.herbivores.length > 10 && this.rng.next() < 0.01) {
+    if (state.predators.length === 0 && state.herbivores.length > 10 && this.rng.next() < 0.05) {
       const traits = avgTraits(state.predTraitMemory) as PredatorTraits | null;
-      for (let i = 0; i < 6; i++) {
+      // Spawn as a cluster so they can find mates
+      const cx = this.rng.range(100, config.worldWidth - 100);
+      const cy = this.rng.range(100, config.worldHeight - 100);
+      for (let i = 0; i < 8; i++) {
         const p = createPredator(
           state.nextId++,
-          this.rng.range(0, config.worldWidth),
-          this.rng.range(0, config.worldHeight),
+          cx + this.rng.range(-40, 40),
+          cy + this.rng.range(-40, 40),
           this.rng,
           config,
           traits || undefined
         );
-        p.energy = config.predatorReproductionEnergy;
+        p.energy = config.predatorReproductionEnergy * 1.2;
         state.predators.push(p);
       }
       state.reintroductionTime = state.time;
     }
-    if (state.scavengers.length === 0 && state.corpses.length > 2 && this.rng.next() < 0.01) {
+    if (state.scavengers.length === 0 && this.rng.next() < 0.03) {
       const traits = avgTraits(state.scavTraitMemory) as ScavengerTraits | null;
+      const cx = this.rng.range(100, config.worldWidth - 100);
+      const cy = this.rng.range(100, config.worldHeight - 100);
       for (let i = 0; i < 8; i++) {
         const s = createScavenger(
           state.nextId++,
-          this.rng.range(0, config.worldWidth),
-          this.rng.range(0, config.worldHeight),
+          cx + this.rng.range(-40, 40),
+          cy + this.rng.range(-40, 40),
           this.rng,
           config,
           traits || undefined
         );
-        s.energy = config.scavengerReproductionEnergy;
+        s.energy = config.scavengerReproductionEnergy * 1.2;
         state.scavengers.push(s);
       }
       state.reintroductionTime = state.time;

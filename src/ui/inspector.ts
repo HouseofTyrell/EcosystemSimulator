@@ -9,6 +9,7 @@ export interface PinnedCreature {
   type: 'herbivore' | 'predator' | 'scavenger';
   deadSince: number | null;
   lastDeathCause: string | null;
+  expanded: boolean;
 }
 
 export class CreatureInspector {
@@ -54,8 +55,13 @@ export class CreatureInspector {
       this.pinned.shift();
     }
 
-    this.pinned.push({ id: c.id, type: c.type, deadSince: null, lastDeathCause: null });
+    this.pinned.push({ id: c.id, type: c.type, deadSince: null, lastDeathCause: null, expanded: false });
     return true;
+  }
+
+  toggleExpand(id: number): void {
+    const pin = this.pinned.find(p => p.id === id);
+    if (pin) pin.expanded = !pin.expanded;
   }
 
   removePin(id: number): void {
@@ -80,7 +86,7 @@ export class CreatureInspector {
     if (all.length === 0) return;
 
     const c = all[Math.floor(Math.random() * all.length)];
-    this.pinned.push({ id: c.id, type: c.type, deadSince: null, lastDeathCause: null });
+    this.pinned.push({ id: c.id, type: c.type, deadSince: null, lastDeathCause: null, expanded: false });
   }
 
   update(state: SimState, simTime: number): void {
@@ -156,43 +162,52 @@ export class CreatureInspector {
         const c = creature!;
         const energyPct = Math.max(0, Math.min(100, (c.energy / 100) * 100));
         const agePct = (c.age / c.maxAge * 100).toFixed(0);
-
-        let traitsHtml = '';
-        const traits = c.traits as unknown as Record<string, number>;
-        for (const [key, val] of Object.entries(traits)) {
-          traitsHtml += `<div class="inspector-trait"><span>${key}</span><span>${val.toFixed(1)}</span></div>`;
-        }
-
         const stateHint = c.behavior || 'wandering';
+        const isExpanded = pin.expanded;
 
-        // Energy sparkline
-        const hist = this.energyHistory.get(pin.id);
-        let sparklineHtml = '';
-        if (hist && hist.length > 2) {
-          const maxE = Math.max(...hist, 1);
-          const h = 20;
-          const w = 60;
-          const points = hist.map((e, i) => `${(i / (hist.length - 1)) * w},${h - (e / maxE) * h}`).join(' ');
-          sparklineHtml = `<svg class="inspector-sparkline" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1"/></svg>`;
+        // Expanded details
+        let expandedHtml = '';
+        if (isExpanded) {
+          // Energy sparkline
+          const hist = this.energyHistory.get(pin.id);
+          let sparklineHtml = '';
+          if (hist && hist.length > 2) {
+            const maxE = Math.max(...hist, 1);
+            const h = 20;
+            const w = 60;
+            const points = hist.map((e, i) => `${(i / (hist.length - 1)) * w},${h - (e / maxE) * h}`).join(' ');
+            sparklineHtml = `<svg class="inspector-sparkline" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1"/></svg>`;
+          }
+
+          let traitsHtml = '';
+          const traits = c.traits as unknown as Record<string, number>;
+          for (const [key, val] of Object.entries(traits)) {
+            traitsHtml += `<div class="inspector-trait"><span>${key}</span><span>${val.toFixed(1)}</span></div>`;
+          }
+
+          expandedHtml = `<div class="inspector-details">
+            ${sparklineHtml}
+            <div class="inspector-row"><span>Lineage</span><span><span class="lineage-swatch" style="background:${color}"></span>#${c.lineageId} gen ${c.generation}</span></div>
+            <div class="inspector-row"><span>Offspring</span><span>${c.offspringCount}</span></div>
+            ${c.deathCause ? `<div class="inspector-trait"><span>Death</span><span>${c.deathCause.replace('_', ' ')}</span></div>` : ''}
+            <div class="inspector-traits-divider"></div>
+            ${traitsHtml}
+          </div>`;
         }
 
         html += `<div class="inspector-card${fadeClass}" style="--creature-color:${color}">
           <div class="inspector-header" style="color:${color}">
             ${label} #${pin.id}
-            <span class="inspector-close" data-id="${pin.id}">&times;</span>
+            <span><span class="inspector-expand" data-id="${pin.id}">${isExpanded ? '▾' : '▸'}</span><span class="inspector-close" data-id="${pin.id}">&times;</span></span>
           </div>
           <div class="inspector-energy">
             <div class="inspector-energy-bar" style="width:${energyPct}%;background:${color}"></div>
           </div>
-          ${sparklineHtml}
           <div class="inspector-row"><span>Energy</span><span>${c.energy.toFixed(0)}</span></div>
-          <div class="inspector-row"><span>Age</span><span>${c.age.toFixed(0)}s / ${c.maxAge.toFixed(0)}s (${agePct}%)</span></div>
-          <div class="inspector-row"><span>Lineage</span><span><span class="lineage-swatch" style="background:${color}"></span>#${c.lineageId} gen ${c.generation}</span></div>
-          <div class="inspector-trait"><span>Species</span><span>${getSubspeciesName(c.type, c.subspecies)}</span></div>
-          ${c.deathCause ? `<div class="inspector-trait"><span>Death</span><span>${c.deathCause.replace('_', ' ')}</span></div>` : ''}
-          <div class="inspector-row"><span>Offspring</span><span>${c.offspringCount}</span></div>
+          <div class="inspector-row"><span>Age</span><span>${c.age.toFixed(0)}s (${agePct}%)</span></div>
+          <div class="inspector-row"><span>Species</span><span>${getSubspeciesName(c.type, c.subspecies)}</span></div>
           <div class="inspector-row"><span>State</span><span>${stateHint}</span></div>
-          ${traitsHtml}
+          ${expandedHtml}
         </div>`;
       }
     }
@@ -201,8 +216,17 @@ export class CreatureInspector {
 
     this.panelEl.querySelectorAll('.inspector-close').forEach(el => {
       el.addEventListener('click', (e) => {
+        e.stopPropagation();
         const id = parseInt((e.target as HTMLElement).dataset.id!);
         this.removePin(id);
+      });
+    });
+
+    this.panelEl.querySelectorAll('.inspector-expand').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt((e.target as HTMLElement).dataset.id!);
+        this.toggleExpand(id);
       });
     });
   }
