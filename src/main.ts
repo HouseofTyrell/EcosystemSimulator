@@ -47,19 +47,17 @@ class App {
     const container = document.getElementById('app')!;
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const worldW = this.sim.state.config.worldWidth;
+    const worldH = this.sim.state.config.worldHeight;
 
-    // Update sim world size to match screen
-    this.sim.state.config.worldWidth = width;
-    this.sim.state.config.worldHeight = height;
-    this.sim.reset(this.seed);
-    this.updatePopCaps();
-
-    this.camera = new Camera(width, height);
+    this.camera = new Camera(worldW, worldH, width, height);
 
     await this.renderer.init({
       container,
       width,
       height,
+      worldWidth: worldW,
+      worldHeight: worldH,
       trails: this.trails,
     });
 
@@ -191,10 +189,7 @@ class App {
       const h = window.innerHeight;
       this.renderer.resize(w, h);
       this.graph.resize();
-      this.sim.state.config.worldWidth = w;
-      this.sim.state.config.worldHeight = h;
       this.camera.resize(w, h);
-      this.updatePopCaps();
       clampAllPanels();
     });
 
@@ -279,10 +274,7 @@ class App {
 
   private reset(seed: number): void {
     this.seed = seed;
-    this.sim.state.config.worldWidth = window.innerWidth;
-    this.sim.state.config.worldHeight = window.innerHeight;
     this.sim.reset(seed);
-    this.updatePopCaps();
     this.accumulator = 0;
     this.ui.updateSeed(seed);
     this.graph.reset();
@@ -291,15 +283,6 @@ class App {
     this.lastFeedCount = 0;
     this.camera.resetView();
     this.renderer.setTrails(this.trails); // Clear trails on reset
-  }
-
-  private updatePopCaps(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const scale = (w * h) / (1920 * 1080);
-    this.sim.state.config.maxHerbivores = Math.floor(800 * scale);
-    this.sim.state.config.maxPredators = Math.floor(250 * scale);
-    this.sim.state.config.maxScavengers = Math.floor(150 * scale);
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {

@@ -11,8 +11,10 @@ import { paintTerrain } from './terrain-painter';
 
 export interface RendererOptions {
   container: HTMLElement;
-  width: number;
-  height: number;
+  width: number;       // screen width
+  height: number;      // screen height
+  worldWidth?: number;  // world width (defaults to screen width)
+  worldHeight?: number; // world height (defaults to screen height)
   trails: boolean;
 }
 
@@ -120,6 +122,8 @@ export class Renderer {
   private ready: boolean = false;
   private worldW: number;
   private worldH: number;
+  private screenW: number;
+  private screenH: number;
   private dayNightEnabled: boolean = true;
   private weatherEnabled: boolean = true;
 
@@ -138,6 +142,8 @@ export class Renderer {
     this.trails = false;
     this.worldW = 0;
     this.worldH = 0;
+    this.screenW = 0;
+    this.screenH = 0;
   }
 
   async init(options: RendererOptions): Promise<void> {
@@ -152,33 +158,37 @@ export class Renderer {
 
     options.container.appendChild(this.app.canvas);
     this.trails = options.trails;
-    this.worldW = options.width;
-    this.worldH = options.height;
+    this.screenW = options.width;
+    this.screenH = options.height;
+    this.worldW = options.worldWidth ?? options.width;
+    this.worldH = options.worldHeight ?? options.height;
 
     // Generate textures
     this.textures = generateTextures(this.app);
 
     // Create terrain cache RenderTexture
     this.terrainTexture = RenderTexture.create({
-      width: options.width,
-      height: options.height,
+      width: this.worldW,
+      height: this.worldH,
       resolution: 1,
     });
     this.terrainSprite = new Sprite(this.terrainTexture);
 
     const terrainScale = 0.5;
     this.terrainCanvas = document.createElement('canvas');
-    this.terrainCanvas.width = Math.ceil(options.width * terrainScale);
-    this.terrainCanvas.height = Math.ceil(options.height * terrainScale);
+    this.terrainCanvas.width = Math.ceil(this.worldW * terrainScale);
+    this.terrainCanvas.height = Math.ceil(this.worldH * terrainScale);
     this.terrainCtx = this.terrainCanvas.getContext('2d')!;
 
     this.vegCanvas = document.createElement('canvas');
-    this.vegCanvas.width = options.width;
-    this.vegCanvas.height = options.height;
+    this.vegCanvas.width = Math.min(this.worldW, 2048);
+    this.vegCanvas.height = Math.min(this.worldH, 2048);
     this.vegCtx = this.vegCanvas.getContext('2d')!;
     this.vegSprite = Sprite.from(this.vegCanvas);
     this.vegSprite.blendMode = 'multiply';
     this.vegSprite.alpha = 0.6;
+    this.vegSprite.width = this.worldW;
+    this.vegSprite.height = this.worldH;
 
     // Add layers to stage in proper z-order
     this.app.stage.addChild(this.backgroundLayer);
@@ -240,8 +250,8 @@ export class Renderer {
     if (camera) {
       this.app.stage.scale.set(camera.zoom);
       this.app.stage.position.set(
-        this.worldW / 2 - camera.x * camera.zoom,
-        this.worldH / 2 - camera.y * camera.zoom
+        this.screenW / 2 - camera.x * camera.zoom,
+        this.screenH / 2 - camera.y * camera.zoom
       );
     } else {
       this.app.stage.scale.set(1);
@@ -249,20 +259,20 @@ export class Renderer {
     }
 
     const config = state.config;
-    const scaleX = this.worldW / config.worldWidth;
-    const scaleY = this.worldH / config.worldHeight;
+    const scaleX = 1;
+    const scaleY = 1;
 
     // Viewport culling bounds (in world coordinates)
     const zoom = camera?.zoom || 1;
     const cx = camera?.x || this.worldW / 2;
     const cy = camera?.y || this.worldH / 2;
-    const halfW = (this.worldW / zoom) / 2;
-    const halfH = (this.worldH / zoom) / 2;
+    const halfW = (this.screenW / zoom) / 2;
+    const halfH = (this.screenH / zoom) / 2;
     const margin = 100 / zoom;
-    const cullLeft = (cx - halfW - margin) / scaleX;
-    const cullRight = (cx + halfW + margin) / scaleX;
-    const cullTop = (cy - halfH - margin) / scaleY;
-    const cullBottom = (cy + halfH + margin) / scaleY;
+    const cullLeft = cx - halfW - margin;
+    const cullRight = cx + halfW + margin;
+    const cullTop = cy - halfH - margin;
+    const cullBottom = cy + halfH + margin;
 
     // LOD: skip per-creature effects when creatures are tiny on screen
     const creatureScreenPx = 4 * zoom;
@@ -723,23 +733,9 @@ export class Renderer {
   resize(width: number, height: number): void {
     if (!this.ready) return;
     this.app.renderer.resize(width, height);
-    this.worldW = width;
-    this.worldH = height;
+    this.screenW = width;
+    this.screenH = height;
     this.trailLayer.clear();
-
-    if (this.terrainTexture) {
-      this.terrainTexture.resize(width, height);
-      this.terrainDirty = true;
-    }
-    if (this.terrainCanvas) {
-      this.terrainCanvas.width = Math.ceil(width * 0.5);
-      this.terrainCanvas.height = Math.ceil(height * 0.5);
-    }
-    if (this.vegCanvas) {
-      this.vegCanvas.width = width;
-      this.vegCanvas.height = height;
-      this.vegUpdateCounter = 15; // force refresh
-    }
   }
 
   destroy(): void {

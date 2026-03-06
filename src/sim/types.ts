@@ -235,33 +235,33 @@ export interface WeatherState {
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
-  worldWidth: 3200,
-  worldHeight: 1800,
+  worldWidth: 4000,
+  worldHeight: 4000,
   seed: 42,
 
-  plantGridCols: 160,
-  plantGridRows: 90,
+  plantGridCols: 200,    // 4000/20=200
+  plantGridRows: 200,    // 4000/20=200
   plantGrowthRate: 0.35,
   plantCarryingCapacity: 1.0,
   seasonalStrength: 0.4,
   seasonPeriod: 180, // 3 minutes for a full season cycle
   dayNightPeriod: 90, // 90s per full day cycle (2 cycles per season)
 
-  initialHerbivores: 30,
+  initialHerbivores: 80,
   herbivoreReproductionEnergy: 85,
   herbivoreReproductionCost: 55,
   herbivoreReproductionCooldownTime: 14,
   herbivoreEatRate: 0.35,
   herbivoreMaxAge: 110,
 
-  initialPredators: 12,
+  initialPredators: 30,
   predatorReproductionEnergy: 65,
   predatorReproductionCost: 35,
   predatorReproductionCooldownTime: 8,
   predatorAttackEnergy: 60,
   predatorMaxAge: 120,
 
-  initialScavengers: 15,
+  initialScavengers: 40,
   scavengerReproductionEnergy: 55,
   scavengerReproductionCost: 35,
   scavengerReproductionCooldownTime: 10,
@@ -275,7 +275,7 @@ export const DEFAULT_CONFIG: SimConfig = {
 
   wrapWorld: false,
 
-  maxHerbivores: 1500,
-  maxPredators: 400,
-  maxScavengers: 300,
+  maxHerbivores: 3000,
+  maxPredators: 1200,
+  maxScavengers: 800,
 };
