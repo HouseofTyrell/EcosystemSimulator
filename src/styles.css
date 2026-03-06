@@ -526,7 +526,7 @@ canvas {
 /* Event Feed */
 #event-feed {
   position: absolute;
-  bottom: 48px;
+  bottom: 164px;
   left: 16px;
   width: min(260px, calc(100vw - 260px));
   max-height: 200px;
