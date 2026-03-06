@@ -166,9 +166,10 @@ export class Renderer {
     });
     this.terrainSprite = new Sprite(this.terrainTexture);
 
+    const terrainScale = 0.5;
     this.terrainCanvas = document.createElement('canvas');
-    this.terrainCanvas.width = options.width;
-    this.terrainCanvas.height = options.height;
+    this.terrainCanvas.width = Math.ceil(options.width * terrainScale);
+    this.terrainCanvas.height = Math.ceil(options.height * terrainScale);
     this.terrainCtx = this.terrainCanvas.getContext('2d')!;
 
     this.vegCanvas = document.createElement('canvas');
@@ -326,7 +327,7 @@ export class Renderer {
     const currentEvent = state.activeEvent?.type || '';
     if (
       this.terrainDirty ||
-      Math.abs(state.season - this.lastTerrainSeason) > 0.01 ||
+      Math.abs(state.season - this.lastTerrainSeason) > 0.05 ||
       currentEvent !== this.lastTerrainEvent
     ) {
       this.renderTerrain(state);
@@ -728,8 +729,8 @@ export class Renderer {
       this.terrainDirty = true;
     }
     if (this.terrainCanvas) {
-      this.terrainCanvas.width = width;
-      this.terrainCanvas.height = height;
+      this.terrainCanvas.width = Math.ceil(width * 0.5);
+      this.terrainCanvas.height = Math.ceil(height * 0.5);
     }
     if (this.vegCanvas) {
       this.vegCanvas.width = width;
