@@ -247,21 +247,21 @@ export const DEFAULT_CONFIG: SimConfig = {
   seasonPeriod: 180, // 3 minutes for a full season cycle
   dayNightPeriod: 90, // 90s per full day cycle (2 cycles per season)
 
-  initialHerbivores: 80,
+  initialHerbivores: 250,
   herbivoreReproductionEnergy: 85,
   herbivoreReproductionCost: 55,
   herbivoreReproductionCooldownTime: 14,
   herbivoreEatRate: 0.35,
   herbivoreMaxAge: 110,
 
-  initialPredators: 30,
+  initialPredators: 100,
   predatorReproductionEnergy: 65,
   predatorReproductionCost: 35,
   predatorReproductionCooldownTime: 8,
-  predatorAttackEnergy: 60,
+  predatorAttackEnergy: 75,
   predatorMaxAge: 120,
 
-  initialScavengers: 40,
+  initialScavengers: 80,
   scavengerReproductionEnergy: 55,
   scavengerReproductionCost: 35,
   scavengerReproductionCooldownTime: 10,

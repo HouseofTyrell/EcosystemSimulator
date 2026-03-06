@@ -1143,7 +1143,7 @@ export function updatePredators(
     p.energy -= (baseMetaP + speedCostP + sizeCostP) * dt * predPopFactor;
 
     // Hunt: try to eat nearest herbivore (satiated predators skip attacking)
-    if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 1.2) {
+    if (p.attackTimer <= 0 && p.energy <= config.predatorReproductionEnergy * 1.8) {
       const herbBuf: Herbivore[] = [];
       const attackRange = p.traits.size * 3 + 8;
       herbHash.query(p.pos, attackRange, herbBuf);
