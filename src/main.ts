@@ -27,7 +27,7 @@ class App {
   private audio: AudioManager = new AudioManager();
   private lastFeedCount: number = 0;
   private paused: boolean = false;
-  private speed: number = 1;
+  private speed: number = 4;
   private trails: boolean = false;
   private dayNightEnabled: boolean = true;
   private accumulator: number = 0;
