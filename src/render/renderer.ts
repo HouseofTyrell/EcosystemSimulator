@@ -144,7 +144,7 @@ export class Renderer {
     await this.app.init({
       width: options.width,
       height: options.height,
-      backgroundColor: 0x0a0a0f,
+      backgroundColor: 0x1a1510,  // Dark earthy brown
       antialias: false,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
@@ -294,25 +294,25 @@ export class Renderer {
         const h = state.herbivores[i];
         this.trailLayer
           .circle(h.pos.x * scaleX, h.pos.y * scaleY, 1)
-          .fill({ color: 0x44aa66, alpha: 0.15 });
+          .fill({ color: 0x6a8a5a, alpha: 0.12 });
       }
       for (let i = 0; i < state.predators.length; i++) {
         const p = state.predators[i];
         this.trailLayer
           .circle(p.pos.x * scaleX, p.pos.y * scaleY, 1)
-          .fill({ color: 0xcc5544, alpha: 0.12 });
+          .fill({ color: 0x8a5040, alpha: 0.10 });
       }
       for (let i = 0; i < state.scavengers.length; i++) {
         const s = state.scavengers[i];
         this.trailLayer
           .circle(s.pos.x * scaleX, s.pos.y * scaleY, 1)
-          .fill({ color: 0xccaa44, alpha: 0.12 });
+          .fill({ color: 0x9a8a40, alpha: 0.10 });
       }
 
       this.fadeOverlay.clear();
       this.fadeOverlay
         .rect(0, 0, this.worldW, this.worldH)
-        .fill({ color: 0x0a0a0f, alpha: this.trailFadeAlpha });
+        .fill({ color: 0x1a1510, alpha: this.trailFadeAlpha });
     }
 
     // === 3. Release all pools ===

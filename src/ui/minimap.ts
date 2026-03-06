@@ -31,7 +31,7 @@ export class Minimap {
     const H = Minimap.H;
     const config = state.config;
 
-    ctx.fillStyle = '#0a0a0f';
+    ctx.fillStyle = '#8b7d5e';
     ctx.fillRect(0, 0, W, H);
 
     // Terrain
@@ -43,13 +43,14 @@ export class Minimap {
       for (let x = 0; x < cols; x++) {
         const idx = y * cols + x;
         const t = state.terrain[idx];
-        if (t === 1) ctx.fillStyle = '#0f2844';        // Water
-        else if (t === 3) ctx.fillStyle = '#2a2520';    // Mountain
-        else if (t === 2) ctx.fillStyle = '#0a1a08';    // Fertile
+        if (t === 1) ctx.fillStyle = '#2a6b6b';        // Water
+        else if (t === 3) ctx.fillStyle = '#8c8c8c';    // Mountain
+        else if (t === 2) ctx.fillStyle = '#5c7a3d';    // Fertile
         else {
           const pd = state.plantGrid[idx];
-          const g = Math.floor(20 + pd * 40);
-          ctx.fillStyle = `rgb(10,${g},10)`;
+          const g = Math.floor(130 + pd * 60);
+          const r = Math.floor(160 - pd * 40);
+          ctx.fillStyle = `rgb(${r},${g},90)`;
         }
         ctx.fillRect(x * cw, y * ch, cw + 0.5, ch + 0.5);
       }
@@ -58,15 +59,15 @@ export class Minimap {
     // Creatures as dots
     const sx = W / config.worldWidth;
     const sy = H / config.worldHeight;
-    ctx.fillStyle = '#5dd880';
+    ctx.fillStyle = '#7a9a6a';
     for (const h of state.herbivores) {
       ctx.fillRect(h.pos.x * sx, h.pos.y * sy, 1.5, 1.5);
     }
-    ctx.fillStyle = '#e87744';
+    ctx.fillStyle = '#a06040';
     for (const p of state.predators) {
       ctx.fillRect(p.pos.x * sx, p.pos.y * sy, 1.5, 1.5);
     }
-    ctx.fillStyle = '#d4a840';
+    ctx.fillStyle = '#b0a050';
     for (const s of state.scavengers) {
       ctx.fillRect(s.pos.x * sx, s.pos.y * sy, 1.5, 1.5);
     }
