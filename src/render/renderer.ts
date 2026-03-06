@@ -348,7 +348,7 @@ export class Renderer {
     // === 5. Vegetation overlay (update every 15 frames) ===
     this.vegUpdateCounter++;
     if (this.vegUpdateCounter >= 15) {
-      this.updateVegetation(state);
+      this.updateVegetation(state, camera);
       this.vegUpdateCounter = 0;
     }
 
@@ -669,23 +669,39 @@ export class Renderer {
     }
   }
 
-  private updateVegetation(state: SimState): void {
+  private updateVegetation(state: SimState, camera?: CameraState): void {
     if (!this.vegCanvas || !this.vegCtx) return;
     const ctx = this.vegCtx;
-    const w = this.vegCanvas.width;
-    const h = this.vegCanvas.height;
+    const vegW = this.vegCanvas.width;
+    const vegH = this.vegCanvas.height;
     const config = state.config;
     const cols = config.plantGridCols;
     const rows = config.plantGridRows;
-    const cellW = w / cols;
-    const cellH = h / rows;
+    const cellW = vegW / cols;
+    const cellH = vegH / rows;
 
     // Clear to white (neutral for multiply blend)
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, vegW, vegH);
 
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
+    // Calculate visible cell range (viewport culling)
+    const zoom = camera?.zoom || 1;
+    const cx = camera?.x || config.worldWidth / 2;
+    const cy = camera?.y || config.worldHeight / 2;
+    const halfW = (this.screenW / zoom) / 2;
+    const halfH = (this.screenH / zoom) / 2;
+    const margin = 200;
+
+    const worldToGridX = cols / config.worldWidth;
+    const worldToGridY = rows / config.worldHeight;
+
+    const minCol = Math.max(0, Math.floor((cx - halfW - margin) * worldToGridX));
+    const maxCol = Math.min(cols - 1, Math.ceil((cx + halfW + margin) * worldToGridX));
+    const minRow = Math.max(0, Math.floor((cy - halfH - margin) * worldToGridY));
+    const maxRow = Math.min(rows - 1, Math.ceil((cy + halfH + margin) * worldToGridY));
+
+    for (let y = minRow; y <= maxRow; y++) {
+      for (let x = minCol; x <= maxCol; x++) {
         const idx = y * cols + x;
         const density = state.plantGrid[idx] / config.plantCarryingCapacity;
         if (density < 0.05) continue;
