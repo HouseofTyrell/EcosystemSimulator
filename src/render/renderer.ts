@@ -341,15 +341,16 @@ export class Renderer {
       this.vegUpdateCounter = 0;
     }
 
-    // === Corpses ===
+    // === Corpses as ground stains ===
     for (let i = 0; i < state.corpses.length; i++) {
       const c = state.corpses[i];
       const sprite = this.shadowPool.acquire();
       sprite.x = c.x * scaleX;
       sprite.y = c.y * scaleY;
-      sprite.tint = c.creatureType === 'herbivore' ? 0x336644 : 0x884433;
-      sprite.alpha = (c.decayTimer / c.maxDecay) * 0.5;
-      sprite.scale.set(0.6);
+      sprite.tint = 0x553322; // dark brown-red
+      const fadeRatio = c.decayTimer / c.maxDecay;
+      sprite.alpha = fadeRatio * 0.4;
+      sprite.scale.set(0.8);
     }
 
     // Shadow offset scales with sun angle (dawn/dusk = longer shadows)
@@ -394,8 +395,12 @@ export class Renderer {
         const ageRatio = h.age / h.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
         const baseScale = h.traits.size * scaleX * 0.28 * ageSclMul;
-        const breathe = 1 + 0.04 * Math.sin(time * 3 + h.id * 0.7);
-        sprite.scale.set(baseScale * breathe);
+        const velMagH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
+        const flexPhaseH = (time * Math.max(velMagH, 0) * 0.12 + h.id * 0.3) % (Math.PI * 2);
+        const flexAmountH = velMagH > 5 ? 0.08 : 0;
+        const scaleXBody = baseScale * (1 + Math.sin(flexPhaseH) * flexAmountH);
+        const scaleYBody = baseScale * (1 - Math.sin(flexPhaseH) * flexAmountH * 0.5);
+        sprite.scale.set(scaleXBody, scaleYBody);
 
         // Simplified matte alpha
         sprite.alpha = h.energy < 25 ? Math.max(0.5, h.energy / 25) * 0.9 : 0.9;
@@ -407,8 +412,6 @@ export class Renderer {
         shadowH.rotation = sprite.rotation;
         shadowH.scale.set(baseScale * 1.1);
         shadowH.alpha = 0.3;
-
-        const velMagH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
         this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagH, h.traits.size, time, h.id, sprite.tint, scaleX);
 
         if (selectedIds && selectedIds.includes(h.id)) {
@@ -464,10 +467,12 @@ export class Renderer {
         const ageRatio = p.age / p.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
         const baseScale = p.traits.size * scaleX * 0.28 * ageSclMul;
-        const prowlPhase = Math.sin(time * 4 + p.id * 0.5);
-        const sx = baseScale * (1 + 0.06 * prowlPhase);
-        const sy = baseScale * (1 - 0.03 * prowlPhase);
-        sprite.scale.set(sx, sy);
+        const velMagP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+        const flexPhaseP = (time * Math.max(velMagP, 0) * 0.12 + p.id * 0.3) % (Math.PI * 2);
+        const flexAmountP = velMagP > 5 ? 0.10 : 0;
+        const scaleXBodyP = baseScale * (1 + Math.sin(flexPhaseP) * flexAmountP);
+        const scaleYBodyP = baseScale * (1 - Math.sin(flexPhaseP) * flexAmountP * 0.5);
+        sprite.scale.set(scaleXBodyP, scaleYBodyP);
 
         // Simplified matte alpha
         sprite.alpha = p.energy < 25 ? Math.max(0.5, p.energy / 25) * 0.9 : 0.9;
@@ -479,8 +484,6 @@ export class Renderer {
         shadowP.rotation = sprite.rotation;
         shadowP.scale.set(baseScale * 1.1);
         shadowP.alpha = 0.3;
-
-        const velMagP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
         this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagP, p.traits.size, time, p.id, sprite.tint, scaleX);
 
         if (selectedIds && selectedIds.includes(p.id)) {
@@ -535,8 +538,12 @@ export class Renderer {
         const ageRatio = s.age / s.maxAge;
         const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
         const baseScale = s.traits.size * scaleX * 0.28 * ageSclMul;
-        const breathe = 1 + 0.04 * Math.sin(time * 2.5 + s.id * 0.9);
-        sprite.scale.set(baseScale * breathe);
+        const velMagS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
+        const flexPhaseS = (time * Math.max(velMagS, 0) * 0.12 + s.id * 0.3) % (Math.PI * 2);
+        const flexAmountS = velMagS > 5 ? 0.08 : 0;
+        const scaleXBodyS = baseScale * (1 + Math.sin(flexPhaseS) * flexAmountS);
+        const scaleYBodyS = baseScale * (1 - Math.sin(flexPhaseS) * flexAmountS * 0.5);
+        sprite.scale.set(scaleXBodyS, scaleYBodyS);
 
         // Simplified matte alpha
         sprite.alpha = s.energy < 25 ? Math.max(0.5, s.energy / 25) * 0.9 : 0.9;
@@ -548,8 +555,6 @@ export class Renderer {
         shadowS.rotation = sprite.rotation;
         shadowS.scale.set(baseScale * 1.0);
         shadowS.alpha = 0.3;
-
-        const velMagS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
         this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagS, s.traits.size, time, s.id, sprite.tint, scaleX);
 
         if (selectedIds && selectedIds.includes(s.id)) {
