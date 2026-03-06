@@ -32,26 +32,32 @@ function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG)
   return rng.next() < chance;
 }
 
-/** Soft boundary repulsion. Returns steering force pushing away from edges. */
-function boundaryRepulsion(pos: Vec2, config: SimConfig): Vec2 {
-  const margin = 300;
-  const strength = 500;
+/** Soft boundary repulsion. Returns steering force pushing away from edges.
+ *  Uses cubic ramp so force is gentle at margin edge but overwhelming near wall. */
+function boundaryRepulsion(pos: Vec2, vel: Vec2, config: SimConfig): Vec2 {
+  const margin = 400;
+  const strength = 800;
   let fx = 0, fy = 0;
 
   if (pos.x < margin) {
     const t = 1 - pos.x / margin;
-    fx += strength * t * t;
+    fx += strength * t * t * t;
+    // Dampen velocity toward wall when very close
+    if (t > 0.7 && vel.x < 0) vel.x *= 0.85;
   } else if (pos.x > config.worldWidth - margin) {
     const t = 1 - (config.worldWidth - pos.x) / margin;
-    fx -= strength * t * t;
+    fx -= strength * t * t * t;
+    if (t > 0.7 && vel.x > 0) vel.x *= 0.85;
   }
 
   if (pos.y < margin) {
     const t = 1 - pos.y / margin;
-    fy += strength * t * t;
+    fy += strength * t * t * t;
+    if (t > 0.7 && vel.y < 0) vel.y *= 0.85;
   } else if (pos.y > config.worldHeight - margin) {
     const t = 1 - (config.worldHeight - pos.y) / margin;
-    fy -= strength * t * t;
+    fy -= strength * t * t * t;
+    if (t > 0.7 && vel.y > 0) vel.y *= 0.85;
   }
 
   return { x: fx, y: fy };
@@ -666,7 +672,7 @@ export function steerHerbivore(
   }
 
   // Soft boundary repulsion
-  const bnd = boundaryRepulsion(h.pos, state.config);
+  const bnd = boundaryRepulsion(h.pos, h.vel, state.config);
   fx += bnd.x;
   fy += bnd.y;
 
@@ -863,7 +869,7 @@ export function steerPredator(
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 
-  const bnd = boundaryRepulsion(p.pos, state.config);
+  const bnd = boundaryRepulsion(p.pos, p.vel, state.config);
   fx += bnd.x;
   fy += bnd.y;
 
@@ -1008,7 +1014,7 @@ export function steerScavenger(
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
 
-  const bnd = boundaryRepulsion(s.pos, state.config);
+  const bnd = boundaryRepulsion(s.pos, s.vel, state.config);
   fx += bnd.x;
   fy += bnd.y;
 
@@ -1100,7 +1106,7 @@ export function steerInsect(
   fy += rng.gaussian(0, 15);
 
   // Boundary repulsion
-  const bnd = boundaryRepulsion(ins.pos, config);
+  const bnd = boundaryRepulsion(ins.pos, ins.vel, config);
   fx += bnd.x;
   fy += bnd.y;
 
@@ -1623,7 +1629,7 @@ export function updateScavengers(
       if (d2 < eatRange * eatRange && c.energy > 0) {
         const eaten = Math.min(c.energy, 12 * dt);
         c.energy -= eaten;
-        s.energy += eaten * 2.5;
+        s.energy += eaten * 3.5;
         // Update homeBase toward corpse feeding locations
         if (s.homeBase) {
           s.homeBase.x += (c.x - s.homeBase.x) * 0.05;
@@ -1835,7 +1841,7 @@ export function updateInsects(
       eatRate * dt,
       config
     );
-    ins.energy += eaten * (subDef?.energyPerPlant ?? 12);
+    ins.energy += eaten * (subDef?.energyPerPlant ?? 16);
 
     // Bee plant boost: when feeding, boost plant growth in nearby cells
     if (eaten > 0 && subDef && subDef.plantBoostRadius > 0) {
@@ -1908,12 +1914,12 @@ export function updateInsects(
       densityReproChance(state.insects.length, config.maxInsects, rng)
     ) {
       const mateBuf: Insect[] = [];
-      insectHash.query(ins.pos, 40, mateBuf);
+      const insMateRange = state.insects.length < 30 ? 200 : 80;
+      insectHash.query(ins.pos, insMateRange, mateBuf);
       let mate: Insect | null = null;
       for (let mi = 0; mi < mateBuf.length; mi++) {
         const m = mateBuf[mi];
         if (m.id === ins.id) continue;
-        if (m.subspecies !== ins.subspecies) continue;
         if (m.energy < config.insectReproductionEnergy * 0.5) continue;
         if (m.reproductionCooldown > 0) continue;
         const mStage = m.age / m.maxAge;
@@ -1960,6 +1966,27 @@ export function updateInsects(
         newborns.push(child);
         state.insectTraitMemory.push({ ...blendedTraits });
         if (state.insectTraitMemory.length > 50) state.insectTraitMemory.shift();
+      } else if (state.insects.length < 15 && ins.energy > config.insectReproductionEnergy * 1.2) {
+        // Solo reproduction when population is critically low
+        ins.energy -= config.insectReproductionCost;
+        ins.reproductionCooldown = config.insectReproductionCooldownTime * 1.5;
+        ins.offspringCount++;
+
+        const child = createInsect(
+          state.nextId++,
+          ins.pos.x + rng.range(-10, 10),
+          ins.pos.y + rng.range(-10, 10),
+          rng,
+          config,
+          { ...ins.traits },
+          ins.subspecies
+        );
+        child.energy = config.insectReproductionCost * 0.5;
+        child.lineageId = ins.lineageId;
+        child.generation = ins.generation + 1;
+        child.parentId = ins.id;
+        events.push({ type: 'birth', creatureType: 'insect', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
       }
     }
   }

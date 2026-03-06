@@ -132,8 +132,8 @@ export const INSECT_SUBSPECIES: InsectSubspeciesDef[] = [
     visionRange: [20, 45],
     turnRateRange: [3, 6],
     metabolismRange: [0.3, 0.8],
-    eatRateMultiplier: 0.5,
-    energyPerPlant: 15,
+    eatRateMultiplier: 0.6,
+    energyPerPlant: 18,
     plantBoostRadius: 0,
   },
   {
@@ -145,8 +145,8 @@ export const INSECT_SUBSPECIES: InsectSubspeciesDef[] = [
     visionRange: [30, 60],
     turnRateRange: [4, 7],
     metabolismRange: [0.4, 1.0],
-    eatRateMultiplier: 0.3,
-    energyPerPlant: 10,
+    eatRateMultiplier: 0.4,
+    energyPerPlant: 14,
     plantBoostRadius: 60,
   },
 ];
