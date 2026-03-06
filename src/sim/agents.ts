@@ -23,7 +23,7 @@ import { clampHerbTraits, clampPredTraits, clampScavTraits } from './subspecies'
 
 /** Density-dependent reproduction probability. Returns true if reproduction allowed. */
 function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
-  const softCap = hardCap * 0.6;
+  const softCap = hardCap * 0.35;
   if (currentPop >= hardCap) return false;
   const ratio = currentPop / softCap;
   const chance = Math.max(0, 1 - ratio * ratio);
@@ -934,7 +934,7 @@ export function updateHerbivores(
     const spdH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
     const relSpeedH = spdH / (h.traits.speed || 1);
     const speedCost = h.traits.speed * relSpeedH * relSpeedH * 0.008;
-    const sizeCost = h.traits.size * 0.15;
+    const sizeCost = h.traits.size * 0.25;
     const baseMeta = h.traits.metabolism + h.traits.speed * Math.sqrt(h.traits.speed) * 0.001;
     h.energy -= (baseMeta + speedCost + sizeCost) * dt;
 
@@ -946,7 +946,7 @@ export function updateHerbivores(
       config.herbivoreEatRate * dt,
       config
     );
-    h.energy += eaten * 40; // energy per plant unit
+    h.energy += eaten * 25; // energy per plant unit
 
     // Update spatial memory
     if (h.memory) {
@@ -1262,7 +1262,7 @@ export function updatePredators(
       densityReproChance(state.predators.length, config.maxPredators, rng)
     ) {
       const mateBuf: Predator[] = [];
-      predHash.query(p.pos, 100, mateBuf);
+      predHash.query(p.pos, 200, mateBuf);
       let mate: Predator | null = null;
       for (let mi = 0; mi < mateBuf.length; mi++) {
         const m = mateBuf[mi];
