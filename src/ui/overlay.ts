@@ -155,6 +155,10 @@ export class UIOverlay {
           <input type="checkbox" data-toggle="help" />
         </div>
         <div class="setting-toggle-row">
+          <label>Territories</label>
+          <input type="checkbox" checked data-toggle="territories" />
+        </div>
+        <div class="setting-toggle-row">
           <label>Day/Night</label>
           <input type="checkbox" checked data-toggle="daynight" />
         </div>

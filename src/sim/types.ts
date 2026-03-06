@@ -66,6 +66,7 @@ export interface Agent {
   infected: number; // 0 = healthy, >0 = infected timer
   birthPos: Vec2;
   subspecies: number;
+  homeBase: Vec2 | null;
 }
 
 export interface Herbivore extends Agent {

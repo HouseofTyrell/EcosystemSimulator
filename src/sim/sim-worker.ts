@@ -29,6 +29,8 @@ function creatureToSnapshot(c: Herbivore | Predator | Scavenger | Insect): Creat
     infected: c.infected,
     birthPosX: c.birthPos.x,
     birthPosY: c.birthPos.y,
+    homeBaseX: c.homeBase ? c.homeBase.x : c.birthPos.x,
+    homeBaseY: c.homeBase ? c.homeBase.y : c.birthPos.y,
     offspringCount: c.offspringCount,
     deathCause: c.deathCause,
   };

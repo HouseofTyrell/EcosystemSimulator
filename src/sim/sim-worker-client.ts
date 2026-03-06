@@ -17,6 +17,7 @@ export interface CreatureView {
   alive: boolean;
   infected: number;
   birthPos: { x: number; y: number };
+  homeBase: { x: number; y: number };
   offspringCount: number;
   deathCause: 'starved' | 'killed' | 'old_age' | 'disease' | null;
   traits: {
@@ -69,6 +70,7 @@ function snapshotToView(s: CreatureSnapshot): CreatureView {
     alive: s.alive,
     infected: s.infected,
     birthPos: { x: s.birthPosX, y: s.birthPosY },
+    homeBase: { x: s.homeBaseX, y: s.homeBaseY },
     offspringCount: s.offspringCount,
     deathCause: s.deathCause,
     traits: {

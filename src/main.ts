@@ -346,6 +346,11 @@ class App {
       return;
     }
 
+    if (key === 'territories') {
+      this.renderer.setTerritories(value as boolean);
+      return;
+    }
+
     if (key === 'wrapWorld') {
       this.sim.setConfig('wrapWorld', value as boolean);
       return;

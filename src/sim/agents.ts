@@ -228,6 +228,7 @@ export function createHerbivore(
     infected: 0,
     subspecies: sub,
     birthPos: { x, y },
+    homeBase: { x, y },
     traits,
   };
 }
@@ -281,6 +282,7 @@ export function createPredator(
     infected: 0,
     subspecies: sub,
     birthPos: { x, y },
+    homeBase: { x, y },
     attackTimer: 0,
     traits,
   };
@@ -334,6 +336,7 @@ export function createScavenger(
     infected: 0,
     subspecies: sub,
     birthPos: { x, y },
+    homeBase: { x, y },
     traits,
   };
 }
@@ -386,6 +389,7 @@ export function createInsect(
     infected: 0,
     subspecies: sub,
     birthPos: { x, y },
+    homeBase: null,
     traits,
   };
 }
@@ -560,14 +564,16 @@ export function steerHerbivore(
     }
   }
 
-  // Home drift: gentle pull toward birthplace when far away
-  const homeDx = h.birthPos.x - h.pos.x;
-  const homeDy = h.birthPos.y - h.pos.y;
-  const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy);
-  if (homeDist > 400) {
-    const homeStr = 5 * Math.min((homeDist - 400) / 400, 1);
-    fx += (homeDx / homeDist) * homeStr;
-    fy += (homeDy / homeDist) * homeStr;
+  // Territorial home drift: pull toward homeBase (updated to best feeding areas)
+  if (h.homeBase) {
+    const homeDx = h.homeBase.x - h.pos.x;
+    const homeDy = h.homeBase.y - h.pos.y;
+    const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy);
+    if (homeDist > 300) {
+      const homeStr = 15 * Math.min((homeDist - 300) / 500, 1);
+      fx += (homeDx / homeDist) * homeStr;
+      fy += (homeDy / homeDist) * homeStr;
+    }
   }
 
   // 4) Water avoidance: check terrain ahead and to sides
@@ -818,6 +824,18 @@ export function steerPredator(
     }
   }
 
+  // Territorial home drift: predators stay near their home base
+  if (p.homeBase) {
+    const homeDx = p.homeBase.x - p.pos.x;
+    const homeDy = p.homeBase.y - p.pos.y;
+    const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy);
+    if (homeDist > 300) {
+      const homeStr = 15 * Math.min((homeDist - 300) / 500, 1);
+      fx += (homeDx / homeDist) * homeStr;
+      fy += (homeDy / homeDist) * homeStr;
+    }
+  }
+
   // 4) Wander noise
   fx += rng.gaussian(0, 10);
   fy += rng.gaussian(0, 10);
@@ -948,6 +966,18 @@ export function steerScavenger(
         fy += (md.y / d) * 20;
       }
       s.behavior = 'seeking mate';
+    }
+  }
+
+  // Territorial home drift: scavengers stay near their home base
+  if (s.homeBase) {
+    const homeDx = s.homeBase.x - s.pos.x;
+    const homeDy = s.homeBase.y - s.pos.y;
+    const homeDist = Math.sqrt(homeDx * homeDx + homeDy * homeDy);
+    if (homeDist > 300) {
+      const homeStr = 10 * Math.min((homeDist - 300) / 500, 1);
+      fx += (homeDx / homeDist) * homeStr;
+      fy += (homeDy / homeDist) * homeStr;
     }
   }
 
@@ -1102,6 +1132,12 @@ export function updateHerbivores(
       config
     );
     h.energy += eaten * 25; // energy per plant unit
+
+    // Update homeBase toward successful feeding locations
+    if (eaten > 0.01 && h.homeBase) {
+      h.homeBase.x += (h.pos.x - h.homeBase.x) * 0.02;
+      h.homeBase.y += (h.pos.y - h.homeBase.y) * 0.02;
+    }
 
     // Update spatial memory
     if (h.memory) {
@@ -1332,6 +1368,11 @@ export function updatePredators(
               killEnergy *= 1.15;
             }
             p.energy += killEnergy;
+            // Update homeBase toward kill location
+            if (p.homeBase) {
+              p.homeBase.x += (h.pos.x - p.homeBase.x) * 0.1;
+              p.homeBase.y += (h.pos.y - p.homeBase.y) * 0.1;
+            }
           } else {
             // Failed attack — still costs energy
             p.energy -= config.predatorAttackEnergy * 0.15;
@@ -1561,6 +1602,11 @@ export function updateScavengers(
         const eaten = Math.min(c.energy, 12 * dt);
         c.energy -= eaten;
         s.energy += eaten * 2.5;
+        // Update homeBase toward corpse feeding locations
+        if (s.homeBase) {
+          s.homeBase.x += (c.x - s.homeBase.x) * 0.05;
+          s.homeBase.y += (c.y - s.homeBase.y) * 0.05;
+        }
         break; // eat one corpse at a time
       }
     }

@@ -22,6 +22,8 @@ export interface CreatureSnapshot {
   infected: number;
   birthPosX: number;
   birthPosY: number;
+  homeBaseX: number;
+  homeBaseY: number;
   offspringCount: number;
   deathCause: 'starved' | 'killed' | 'old_age' | 'disease' | null;
   attackTimer?: number;

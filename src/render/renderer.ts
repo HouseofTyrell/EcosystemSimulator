@@ -114,6 +114,16 @@ export class Renderer {
   private vegSprite: Sprite | null = null;
   private vegUpdateCounter: number = 0;
 
+  // Territory overlay
+  private territoryCanvas: HTMLCanvasElement | null = null;
+  private territoryCtx: CanvasRenderingContext2D | null = null;
+  private territorySprite: Sprite | null = null;
+  private territoryUpdateCounter: number = 0;
+  private territoryGrid: Float32Array[] | null = null; // 4 grids: herb, pred, scav, insect
+  private territoryGridCols: number = 40;
+  private territoryGridRows: number = 40;
+  private territoriesEnabled: boolean = true;
+
   // Textures
   private textures!: GeneratedTextures;
 
@@ -193,10 +203,31 @@ export class Renderer {
     this.vegSprite.width = this.worldW;
     this.vegSprite.height = this.worldH;
 
+    // Territory overlay canvas
+    this.territoryCanvas = document.createElement('canvas');
+    this.territoryCanvas.width = Math.min(this.worldW, 512);
+    this.territoryCanvas.height = Math.min(this.worldH, 512);
+    this.territoryCtx = this.territoryCanvas.getContext('2d')!;
+    this.territorySprite = Sprite.from(this.territoryCanvas);
+    this.territorySprite.blendMode = 'normal';
+    this.territorySprite.alpha = 1.0; // alpha is baked into the pixel data
+    this.territorySprite.width = this.worldW;
+    this.territorySprite.height = this.worldH;
+
+    // Initialize territory density grids (herb, pred, scav, insect)
+    const gridSize = this.territoryGridCols * this.territoryGridRows;
+    this.territoryGrid = [
+      new Float32Array(gridSize),
+      new Float32Array(gridSize),
+      new Float32Array(gridSize),
+      new Float32Array(gridSize),
+    ];
+
     // Add layers to stage in proper z-order
     this.app.stage.addChild(this.backgroundLayer);
     this.app.stage.addChild(this.terrainSprite!);
     this.app.stage.addChild(this.vegSprite);
+    this.app.stage.addChild(this.territorySprite);
     this.app.stage.addChild(this.trailLayer);
     this.app.stage.addChild(this.fadeOverlay);
     this.app.stage.addChild(this.legContainer);
@@ -247,6 +278,15 @@ export class Renderer {
   setWeather(enabled: boolean): void {
     this.weatherEnabled = enabled;
     if (!enabled) this.weatherLayer.clear();
+  }
+
+  setTerritories(enabled: boolean): void {
+    this.territoriesEnabled = enabled;
+    if (!enabled && this.territorySprite) {
+      this.territorySprite.visible = false;
+    } else if (enabled && this.territorySprite) {
+      this.territorySprite.visible = true;
+    }
   }
 
   render(state: SimState, time: number, selectedIds?: number[], camera?: CameraState): void {
@@ -358,6 +398,13 @@ export class Renderer {
     if (this.vegUpdateCounter >= 15) {
       this.updateVegetation(state, camera);
       this.vegUpdateCounter = 0;
+    }
+
+    // === 5b. Territory overlay (update every 30 frames) ===
+    this.territoryUpdateCounter++;
+    if (this.territoriesEnabled && this.territoryUpdateCounter >= 30) {
+      this.updateTerritoryOverlay(state);
+      this.territoryUpdateCounter = 0;
     }
 
     // === Corpses as ground stains ===
@@ -746,6 +793,108 @@ export class Renderer {
     // Refresh the pixi texture from canvas
     if (this.vegSprite) {
       this.vegSprite.texture.source.update();
+    }
+  }
+
+  private updateTerritoryOverlay(state: SimState): void {
+    if (!this.territoryCanvas || !this.territoryCtx || !this.territoryGrid) return;
+    const ctx = this.territoryCtx;
+    const tW = this.territoryCanvas.width;
+    const tH = this.territoryCanvas.height;
+    const cols = this.territoryGridCols;
+    const rows = this.territoryGridRows;
+    const config = state.config;
+    const cellWorldW = config.worldWidth / cols;
+    const cellWorldH = config.worldHeight / rows;
+
+    // Decay all grids
+    for (let g = 0; g < 4; g++) {
+      const grid = this.territoryGrid[g];
+      for (let i = 0; i < grid.length; i++) {
+        grid[i] *= 0.97;
+      }
+    }
+
+    // Accumulate creature positions
+    for (let i = 0; i < state.herbivores.length; i++) {
+      const h = state.herbivores[i];
+      const col = Math.min(cols - 1, Math.max(0, Math.floor(h.pos.x / cellWorldW)));
+      const row = Math.min(rows - 1, Math.max(0, Math.floor(h.pos.y / cellWorldH)));
+      this.territoryGrid[0][row * cols + col] += 0.15;
+    }
+    for (let i = 0; i < state.predators.length; i++) {
+      const p = state.predators[i];
+      const col = Math.min(cols - 1, Math.max(0, Math.floor(p.pos.x / cellWorldW)));
+      const row = Math.min(rows - 1, Math.max(0, Math.floor(p.pos.y / cellWorldH)));
+      this.territoryGrid[1][row * cols + col] += 0.25;
+    }
+    for (let i = 0; i < state.scavengers.length; i++) {
+      const s = state.scavengers[i];
+      const col = Math.min(cols - 1, Math.max(0, Math.floor(s.pos.x / cellWorldW)));
+      const row = Math.min(rows - 1, Math.max(0, Math.floor(s.pos.y / cellWorldH)));
+      this.territoryGrid[2][row * cols + col] += 0.2;
+    }
+    if (state.insects) {
+      for (let i = 0; i < state.insects.length; i++) {
+        const ins = state.insects[i];
+        const col = Math.min(cols - 1, Math.max(0, Math.floor(ins.pos.x / cellWorldW)));
+        const row = Math.min(rows - 1, Math.max(0, Math.floor(ins.pos.y / cellWorldH)));
+        this.territoryGrid[3][row * cols + col] += 0.1;
+      }
+    }
+
+    // Render to canvas
+    ctx.clearRect(0, 0, tW, tH);
+    const cellCanvasW = tW / cols;
+    const cellCanvasH = tH / rows;
+
+    // Territory colors: green=herb, red=pred, gold=scav, brown=insect
+    const colors = [
+      [60, 160, 60],   // herbivore green
+      [180, 50, 40],   // predator red
+      [180, 150, 40],  // scavenger gold
+      [140, 100, 50],  // insect brown
+    ];
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const idx = row * cols + col;
+
+        // Find dominant species and total density
+        let maxVal = 0;
+        let r = 0, g = 0, b = 0;
+        let totalDensity = 0;
+
+        for (let sp = 0; sp < 4; sp++) {
+          const val = Math.min(this.territoryGrid[sp][idx], 8); // cap
+          if (val > 0.3) {
+            const alpha = Math.min(val / 6, 1);
+            r += colors[sp][0] * alpha;
+            g += colors[sp][1] * alpha;
+            b += colors[sp][2] * alpha;
+            totalDensity += alpha;
+          }
+          if (val > maxVal) maxVal = val;
+        }
+
+        if (totalDensity < 0.05) continue;
+
+        // Normalize color blend
+        r = Math.min(255, r / totalDensity);
+        g = Math.min(255, g / totalDensity);
+        b = Math.min(255, b / totalDensity);
+
+        // Subtle alpha: 0.08-0.12 range
+        const a = Math.min(0.12, totalDensity * 0.06);
+
+        ctx.fillStyle = `rgba(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)}, ${a})`;
+        ctx.fillRect(col * cellCanvasW, row * cellCanvasH, cellCanvasW + 0.5, cellCanvasH + 0.5);
+      }
+    }
+
+    // Refresh pixi texture from canvas
+    if (this.territorySprite) {
+      this.territorySprite.texture.source.update();
     }
   }
 
