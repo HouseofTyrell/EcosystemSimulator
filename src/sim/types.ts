@@ -275,7 +275,7 @@ export const DEFAULT_CONFIG: SimConfig = {
 
   wrapWorld: false,
 
-  maxHerbivores: 3000,
-  maxPredators: 1200,
-  maxScavengers: 800,
+  maxHerbivores: 5000,
+  maxPredators: 2000,
+  maxScavengers: 1500,
 };

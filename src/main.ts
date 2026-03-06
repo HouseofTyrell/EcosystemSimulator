@@ -36,6 +36,7 @@ class App {
   private fpsFrames: number = 0;
   private fpsLastTime: number = 0;
   private fps: number = 0;
+  private perfFactor: number = 1.0; // 1.0 = full caps, 0.0 = minimum caps
 
   constructor() {
     this.seed = Math.floor(Math.random() * 999999);
@@ -206,12 +207,30 @@ class App {
     const elapsed = Math.min((now - this.lastTime) / 1000, 0.1); // Cap at 100ms
     this.lastTime = now;
 
-    // FPS counter (update every 500ms)
+    // FPS counter + performance-based population caps (update every 500ms)
     this.fpsFrames++;
     if (now - this.fpsLastTime >= 500) {
       this.fps = Math.round(this.fpsFrames / ((now - this.fpsLastTime) / 1000));
       this.fpsFrames = 0;
       this.fpsLastTime = now;
+
+      // Performance scaling: 60+ FPS = grow freely, 30 FPS = minimum caps
+      const targetFactor = this.fps >= 60 ? 1.0
+        : this.fps <= 30 ? 0.0
+        : (this.fps - 30) / 30;
+      // Smooth the factor (drop fast, recover slow)
+      if (targetFactor < this.perfFactor) {
+        this.perfFactor += (targetFactor - this.perfFactor) * 0.5; // drop quickly
+      } else {
+        this.perfFactor += (targetFactor - this.perfFactor) * 0.1; // recover slowly
+      }
+
+      // Scale caps: minimum viable populations → full caps
+      const f = this.perfFactor;
+      const maxH = Math.round(200 + f * 4800);   // 200 – 5000
+      const maxP = Math.round(80 + f * 1920);     // 80 – 2000
+      const maxS = Math.round(60 + f * 1440);     // 60 – 1500
+      this.sim.setPopCaps(maxH, maxP, maxS);
     }
 
     if (!this.paused) {
