@@ -92,6 +92,8 @@ export class Renderer {
   private scavPool!: SpritePool;
   private predPool!: SpritePool;
   private shadowPool!: SpritePool;
+  private legContainer: Container;
+  private legPool!: SpritePool;
 
   // Terrain cache
   private terrainTexture: RenderTexture | null = null;
@@ -132,6 +134,7 @@ export class Renderer {
     this.fadeOverlay = new Graphics();
     this.nightOverlay = new Graphics();
     this.weatherLayer = new Graphics();
+    this.legContainer = new Container();
     this.trails = false;
     this.worldW = 0;
     this.worldH = 0;
@@ -182,6 +185,7 @@ export class Renderer {
     this.app.stage.addChild(this.vegSprite);
     this.app.stage.addChild(this.trailLayer);
     this.app.stage.addChild(this.fadeOverlay);
+    this.app.stage.addChild(this.legContainer);
     this.app.stage.addChild(this.shadowContainer);
     this.app.stage.addChild(this.herbivoreContainer);
     this.app.stage.addChild(this.scavengerContainer);
@@ -194,6 +198,8 @@ export class Renderer {
     this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
     this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
+    this.legPool = new SpritePool(this.textures.leg, this.legContainer);
+    this.legPool.preallocate(2400);
 
     // Pre-allocate for up to 1000 creatures to avoid runtime stalls
     this.herbPool.preallocate(800);
@@ -314,6 +320,7 @@ export class Renderer {
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
     this.shadowPool.releaseAll();
+    this.legPool.releaseAll();
 
     // === 4. Terrain (cached) ===
     const currentEvent = state.activeEvent?.type || '';
@@ -401,6 +408,9 @@ export class Renderer {
         shadowH.scale.set(baseScale * 1.1);
         shadowH.alpha = 0.3;
 
+        const velMagH = Math.sqrt(h.vel.x * h.vel.x + h.vel.y * h.vel.y);
+        this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagH, h.traits.size, time, h.id, sprite.tint, scaleX);
+
         if (selectedIds && selectedIds.includes(h.id)) {
           const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
@@ -470,6 +480,9 @@ export class Renderer {
         shadowP.scale.set(baseScale * 1.1);
         shadowP.alpha = 0.3;
 
+        const velMagP = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+        this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagP, p.traits.size, time, p.id, sprite.tint, scaleX);
+
         if (selectedIds && selectedIds.includes(p.id)) {
           const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
@@ -535,6 +548,9 @@ export class Renderer {
         shadowS.rotation = sprite.rotation;
         shadowS.scale.set(baseScale * 1.0);
         shadowS.alpha = 0.3;
+
+        const velMagS = Math.sqrt(s.vel.x * s.vel.x + s.vel.y * s.vel.y);
+        this.renderLegs(sprite.x, sprite.y, sprite.rotation, velMagS, s.traits.size, time, s.id, sprite.tint, scaleX);
 
         if (selectedIds && selectedIds.includes(s.id)) {
           const ring = this.shadowPool.acquire();
@@ -637,6 +653,45 @@ export class Renderer {
           }
         }
       }
+    }
+  }
+
+  private renderLegs(
+    x: number, y: number, rotation: number,
+    speed: number, size: number, time: number, id: number,
+    tint: number, scaleX: number,
+  ): void {
+    if (speed < 5) return; // No legs when nearly stationary
+
+    const phase = (time * speed * 0.15 + id * 0.5) % (Math.PI * 2);
+    const legSpread = size * scaleX * 0.15;
+    const legStride = size * scaleX * 0.08;
+
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const perpX = -sin;
+    const perpY = cos;
+    const paraX = cos;
+    const paraY = sin;
+
+    for (let pair = 0; pair < 2; pair++) {
+      const pairPhase = phase + pair * Math.PI;
+      const stride = Math.sin(pairPhase) * legStride;
+      const offset = (pair - 0.5) * legSpread * 2;
+
+      const leg1 = this.legPool.acquire();
+      leg1.x = x + perpX * legSpread + paraX * (offset + stride);
+      leg1.y = y + perpY * legSpread + paraY * (offset + stride);
+      leg1.tint = tint;
+      leg1.alpha = 0.7;
+      leg1.scale.set(size * scaleX * 0.12);
+
+      const leg2 = this.legPool.acquire();
+      leg2.x = x - perpX * legSpread + paraX * (offset - stride);
+      leg2.y = y - perpY * legSpread + paraY * (offset - stride);
+      leg2.tint = tint;
+      leg2.alpha = 0.7;
+      leg2.scale.set(size * scaleX * 0.12);
     }
   }
 

@@ -7,6 +7,7 @@ export interface GeneratedTextures {
   plant: Texture;
   particle: Texture;
   shadow: Texture;
+  leg: Texture;
 }
 
 export function generateTextures(app: Application): GeneratedTextures {
@@ -63,6 +64,13 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
+  // Leg dot: tiny circle for leg animation
+  const legG = new Graphics();
+  legG.circle(0, 0, 1.5);
+  legG.fill({ color: 0xffffff });
+  const leg = app.renderer.generateTexture({ target: legG, resolution: 2 });
+  legG.destroy();
+
   // Shadow: soft dark oval for ground shadow beneath creatures
   const shadowG = new Graphics();
   const shadowSteps = 5;
@@ -84,5 +92,5 @@ export function generateTextures(app: Application): GeneratedTextures {
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, scavenger, plant, particle, shadow };
+  return { herbivore, predator, scavenger, plant, particle, shadow, leg };
 }
