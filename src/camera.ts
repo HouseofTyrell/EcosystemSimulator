@@ -20,7 +20,7 @@ export class Camera {
     this.worldH = worldH;
     this.screenW = screenW ?? worldW;
     this.screenH = screenH ?? worldH;
-    const zoom = Math.min(this.screenW / worldW, this.screenH / worldH);
+    const zoom = Math.max(this.screenW / worldW, this.screenH / worldH);
     this.state = {
       x: worldW / 2,
       y: worldH / 2,
@@ -63,11 +63,11 @@ export class Camera {
     if (isPinch) {
       // Trackpad pinch: delta is small and continuous, use it proportionally
       const scale = 1 - delta * 0.005;
-      this.state.targetZoom = Math.max(0.5, Math.min(4, oldZoom * scale));
+      this.state.targetZoom = Math.max(0.15, Math.min(4, oldZoom * scale));
     } else {
       // Mouse wheel: discrete steps, use fixed 5% increments
       const dir = Math.sign(delta);
-      this.state.targetZoom = Math.max(0.5, Math.min(4, oldZoom * (1 - dir * 0.05)));
+      this.state.targetZoom = Math.max(0.15, Math.min(4, oldZoom * (1 - dir * 0.05)));
     }
 
     // Anchor: adjust camera so the world point under cursor stays put
@@ -95,7 +95,7 @@ export class Camera {
   resetView(): void {
     this.state.targetX = this.worldW / 2;
     this.state.targetY = this.worldH / 2;
-    this.state.targetZoom = Math.min(this.screenW / this.worldW, this.screenH / this.worldH);
+    this.state.targetZoom = Math.max(this.screenW / this.worldW, this.screenH / this.worldH);
     this.state.following = null;
   }
 
