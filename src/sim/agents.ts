@@ -34,8 +34,8 @@ function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG)
 
 /** Soft boundary repulsion. Returns steering force pushing away from edges. */
 function boundaryRepulsion(pos: Vec2, config: SimConfig): Vec2 {
-  const margin = 120;
-  const strength = 200;
+  const margin = 300;
+  const strength = 500;
   let fx = 0, fy = 0;
 
   if (pos.x < margin) {
@@ -55,6 +55,25 @@ function boundaryRepulsion(pos: Vec2, config: SimConfig): Vec2 {
   }
 
   return { x: fx, y: fy };
+}
+
+/** Dampen velocity component toward wall when creature is clamped at boundary */
+function clampWithBounce(pos: Vec2, vel: Vec2, config: SimConfig): void {
+  const pad = 2;
+  if (pos.x < 0) {
+    pos.x = pad;
+    if (vel.x < 0) vel.x = -vel.x * 0.3;
+  } else if (pos.x >= config.worldWidth) {
+    pos.x = config.worldWidth - pad;
+    if (vel.x > 0) vel.x = -vel.x * 0.3;
+  }
+  if (pos.y < 0) {
+    pos.y = pad;
+    if (vel.y < 0) vel.y = -vel.y * 0.3;
+  } else if (pos.y >= config.worldHeight) {
+    pos.y = config.worldHeight - pad;
+    if (vel.y > 0) vel.y = -vel.y * 0.3;
+  }
 }
 
 function getLifeStage(age: number, maxAge: number): 'baby' | 'adult' | 'elder' {
@@ -1202,10 +1221,7 @@ export function updateHerbivores(
       h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (h.pos.x < 0) h.pos.x = 0;
-      else if (h.pos.x >= config.worldWidth) h.pos.x = config.worldWidth - 0.1;
-      if (h.pos.y < 0) h.pos.y = 0;
-      else if (h.pos.y >= config.worldHeight) h.pos.y = config.worldHeight - 0.1;
+      clampWithBounce(h.pos, h.vel, config);
     }
 
     // Disease spread and damage
@@ -1443,10 +1459,7 @@ export function updatePredators(
       p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (p.pos.x < 0) p.pos.x = 0;
-      else if (p.pos.x >= config.worldWidth) p.pos.x = config.worldWidth - 0.1;
-      if (p.pos.y < 0) p.pos.y = 0;
-      else if (p.pos.y >= config.worldHeight) p.pos.y = config.worldHeight - 0.1;
+      clampWithBounce(p.pos, p.vel, config);
     }
 
     // Disease spread and damage
@@ -1661,10 +1674,7 @@ export function updateScavengers(
       s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (s.pos.x < 0) s.pos.x = 0;
-      else if (s.pos.x >= config.worldWidth) s.pos.x = config.worldWidth - 0.1;
-      if (s.pos.y < 0) s.pos.y = 0;
-      else if (s.pos.y >= config.worldHeight) s.pos.y = config.worldHeight - 0.1;
+      clampWithBounce(s.pos, s.vel, config);
     }
 
     // Disease spread and damage
@@ -1855,10 +1865,7 @@ export function updateInsects(
       ins.pos.x = ((ins.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       ins.pos.y = ((ins.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      if (ins.pos.x < 0) ins.pos.x = 0;
-      else if (ins.pos.x >= config.worldWidth) ins.pos.x = config.worldWidth - 0.1;
-      if (ins.pos.y < 0) ins.pos.y = 0;
-      else if (ins.pos.y >= config.worldHeight) ins.pos.y = config.worldHeight - 0.1;
+      clampWithBounce(ins.pos, ins.vel, config);
     }
 
     // Death
