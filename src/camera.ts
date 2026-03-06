@@ -44,7 +44,7 @@ export class Camera {
     const worldY = this.screenToWorldY(screenY, screenH);
 
     const factor = delta > 0 ? 0.9 : 1.1;
-    this.state.targetZoom = Math.max(0.5, Math.min(4, this.state.targetZoom * factor));
+    this.state.targetZoom = Math.max(0.25, Math.min(4, this.state.targetZoom * factor));
 
     this.state.targetX = worldX;
     this.state.targetY = worldY;
