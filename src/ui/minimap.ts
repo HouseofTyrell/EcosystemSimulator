@@ -19,7 +19,7 @@ export class Minimap {
     this.ctx = this.canvas.getContext('2d')!;
   }
 
-  update(state: SimState, camera: CameraState): void {
+  update(state: SimState, camera: CameraState, screenW?: number, screenH?: number): void {
     this.el.style.display = 'block';
 
     const ctx = this.ctx;
@@ -68,9 +68,9 @@ export class Minimap {
       ctx.fillRect(s.pos.x * sx, s.pos.y * sy, 1.5, 1.5);
     }
 
-    // Viewport rectangle
-    const vpW = config.worldWidth / camera.zoom;
-    const vpH = config.worldHeight / camera.zoom;
+    // Viewport rectangle (screen size / zoom = visible world area)
+    const vpW = (screenW || window.innerWidth) / camera.zoom;
+    const vpH = (screenH || window.innerHeight) / camera.zoom;
     const vpX = (camera.x - vpW / 2) * sx;
     const vpY = (camera.y - vpH / 2) * sy;
     ctx.strokeStyle = 'rgba(255,255,255,0.6)';
