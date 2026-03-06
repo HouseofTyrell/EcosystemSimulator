@@ -10,6 +10,7 @@ export interface UICallbacks {
   onNewSeed: () => void;
   onSpeedChange: (speed: number) => void;
   onConfigChange: (key: string, value: number | boolean) => void;
+  onResetCamera: () => void;
   isPaused: () => boolean;
   getSpeed: () => number;
   getSeed: () => number;
@@ -54,6 +55,12 @@ export class UIOverlay {
     this.seedEl.id = 'seed-display';
     this.bottomStatus.appendChild(this.seedEl);
 
+    const resetCamBtn = document.createElement('button');
+    resetCamBtn.id = 'reset-camera-btn';
+    resetCamBtn.textContent = '⌂ Reset Camera';
+    resetCamBtn.addEventListener('click', () => callbacks.onResetCamera());
+    this.bottomStatus.appendChild(resetCamBtn);
+
     // Pause indicator
     this.pauseEl = document.createElement('div');
     this.pauseEl.id = 'pause-indicator';
@@ -80,6 +87,7 @@ export class UIOverlay {
       <div><span class="key">M</span> Toggle sound</div>
       <div><span class="key">H</span> Toggle this help</div>
       <div><span class="key">S</span> Toggle settings</div>
+      <div><span class="key">0</span> Reset camera</div>
       <div><span class="key">L</span> Reset panel layout</div>
     `;
     this.overlay.appendChild(this.helpEl);

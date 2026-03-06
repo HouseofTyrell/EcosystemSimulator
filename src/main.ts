@@ -72,6 +72,7 @@ class App {
       },
       onSpeedChange: (s) => { this.speed = s; this.ui.updateSpeed(s); },
       onConfigChange: (key, value) => this.handleConfigChange(key, value),
+      onResetCamera: () => this.camera.resetView(),
       isPaused: () => this.paused,
       getSpeed: () => this.speed,
       getSeed: () => this.seed,
