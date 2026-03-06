@@ -37,21 +37,38 @@ export class Camera {
     this.state.x += (this.state.targetX - this.state.x) * lerp;
     this.state.y += (this.state.targetY - this.state.y) * lerp;
     this.state.zoom += (this.state.targetZoom - this.state.zoom) * lerp;
+
+    // Clamp camera to world bounds
+    this.state.targetX = Math.max(0, Math.min(this.worldW, this.state.targetX));
+    this.state.targetY = Math.max(0, Math.min(this.worldH, this.state.targetY));
   }
 
-  zoomAt(screenX: number, screenY: number, screenW: number, screenH: number, delta: number): void {
+  zoomAt(screenX: number, screenY: number, screenW: number, screenH: number, delta: number, isPinch: boolean): void {
+    // World point under cursor before zoom
     const worldX = this.screenToWorldX(screenX, screenW);
     const worldY = this.screenToWorldY(screenY, screenH);
 
-    // Normalize: clamp to ±1 direction, apply gentle 3% per step
-    const dir = Math.sign(delta);
-    const factor = 1 - dir * 0.03;
-    this.state.targetZoom = Math.max(0.5, Math.min(4, this.state.targetZoom * factor));
+    const oldZoom = this.state.targetZoom;
 
-    // Smoothly drift toward cursor rather than snapping
-    const blend = 0.3;
-    this.state.targetX += (worldX - this.state.targetX) * blend;
-    this.state.targetY += (worldY - this.state.targetY) * blend;
+    if (isPinch) {
+      // Trackpad pinch: delta is small and continuous, use it proportionally
+      const scale = 1 - delta * 0.005;
+      this.state.targetZoom = Math.max(0.5, Math.min(4, oldZoom * scale));
+    } else {
+      // Mouse wheel: discrete steps, use fixed 5% increments
+      const dir = Math.sign(delta);
+      this.state.targetZoom = Math.max(0.5, Math.min(4, oldZoom * (1 - dir * 0.05)));
+    }
+
+    // Anchor: adjust camera so the world point under cursor stays put
+    const newZoom = this.state.targetZoom;
+    if (Math.abs(newZoom - oldZoom) > 0.0001) {
+      // screenX = screenW/2 + (worldX - camX) * zoom
+      // We want worldX to stay at screenX after zoom changes
+      // camX_new = worldX - (screenX - screenW/2) / newZoom
+      this.state.targetX = worldX - (screenX - screenW / 2) / newZoom;
+      this.state.targetY = worldY - (screenY - screenH / 2) / newZoom;
+    }
   }
 
   panBy(dx: number, dy: number): void {

@@ -101,11 +101,13 @@ class App {
       this.inspector.tryPin(this.sim.state, worldX, worldY);
     });
 
-    // Mouse wheel zoom
+    // Mouse wheel / trackpad zoom
     this.renderer.app.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = this.renderer.app.canvas.getBoundingClientRect();
-      this.camera.zoomAt(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, e.deltaY);
+      // ctrlKey is true for trackpad pinch-to-zoom gestures
+      const isPinch = e.ctrlKey;
+      this.camera.zoomAt(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, e.deltaY, isPinch);
     }, { passive: false });
 
     // Middle/right-click drag to pan
