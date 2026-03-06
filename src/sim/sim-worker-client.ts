@@ -99,6 +99,7 @@ export class SimWorkerClient {
     this.worker.onmessage = (e: MessageEvent<WorkerToMainMessage>) => {
       const msg = e.data;
       if (msg.type === 'ready') {
+        this._renderState.config = msg.config;
         this._ready = true;
         if (this._onReady) this._onReady();
       } else if (msg.type === 'snapshot') {

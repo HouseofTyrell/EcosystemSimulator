@@ -81,7 +81,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
   switch (msg.type) {
     case 'init': {
       sim = new Simulation(msg.config);
-      (self as unknown as Worker).postMessage({ type: 'ready' });
+      (self as unknown as Worker).postMessage({ type: 'ready', config: { ...sim.state.config } });
       break;
     }
     case 'step': {

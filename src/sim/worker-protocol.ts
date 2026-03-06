@@ -59,4 +59,4 @@ export type MainToWorkerMessage =
 
 export type WorkerToMainMessage =
   | { type: 'snapshot'; data: RenderSnapshot }
-  | { type: 'ready' };
+  | { type: 'ready'; config: SimConfig };
