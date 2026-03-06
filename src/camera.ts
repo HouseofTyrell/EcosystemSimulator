@@ -33,7 +33,7 @@ export class Camera {
   }
 
   update(): void {
-    const lerp = 0.08;
+    const lerp = 0.12;
     this.state.x += (this.state.targetX - this.state.x) * lerp;
     this.state.y += (this.state.targetY - this.state.y) * lerp;
     this.state.zoom += (this.state.targetZoom - this.state.zoom) * lerp;
@@ -43,11 +43,15 @@ export class Camera {
     const worldX = this.screenToWorldX(screenX, screenW);
     const worldY = this.screenToWorldY(screenY, screenH);
 
-    const factor = delta > 0 ? 0.9 : 1.1;
-    this.state.targetZoom = Math.max(0.25, Math.min(4, this.state.targetZoom * factor));
+    // Normalize: clamp to ±1 direction, apply gentle 3% per step
+    const dir = Math.sign(delta);
+    const factor = 1 - dir * 0.03;
+    this.state.targetZoom = Math.max(0.5, Math.min(4, this.state.targetZoom * factor));
 
-    this.state.targetX = worldX;
-    this.state.targetY = worldY;
+    // Smoothly drift toward cursor rather than snapping
+    const blend = 0.3;
+    this.state.targetX += (worldX - this.state.targetX) * blend;
+    this.state.targetY += (worldY - this.state.targetY) * blend;
   }
 
   panBy(dx: number, dy: number): void {
