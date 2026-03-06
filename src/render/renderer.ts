@@ -580,35 +580,15 @@ export class Renderer {
       const wi = state.weather.intensity;
 
       if (state.weather.type === 'rain') {
-        // Batch all rain lines into a single stroke call
-        const rainCount = Math.floor(wi * 200);
-        for (let i = 0; i < rainCount; i++) {
-          const rx = ((i * 3571 + Math.floor(time * 200)) % this.worldW);
-          const baseY = ((i * 7127 + Math.floor(time * 400)) % (this.worldH + 40)) - 20;
-          const len = 8 + (i % 6) * 2.5;
-          this.weatherLayer.moveTo(rx, baseY).lineTo(rx - 1, baseY + len);
-        }
-        this.weatherLayer.stroke({ color: 0x5577bb, width: 1.5, alpha: wi * 0.4 });
-
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
-          .fill({ color: 0x223355, alpha: wi * 0.1 });
-
-        // Background rain layer — single batched stroke
-        const bgRainCount = Math.floor(rainCount * 0.5);
-        for (let j = 0; j < bgRainCount; j++) {
-          const bx = ((j * 5501 + Math.floor(time * 160)) % this.worldW);
-          const by = ((j * 8363 + Math.floor(time * 320)) % (this.worldH + 30)) - 15;
-          const bgLen = 6 + (j % 4) * 1.5;
-          this.weatherLayer.moveTo(bx, by).lineTo(bx - 0.5 + Math.sin(0.1) * bgLen, by + Math.cos(0.1) * bgLen);
-        }
-        if (bgRainCount > 0) this.weatherLayer.stroke({ color: 0x8899bb, width: 0.5, alpha: 0.08 * wi });
+          .fill({ color: 0x223355, alpha: wi * 0.15 });
       }
 
       if (state.weather.type === 'fog') {
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
-          .fill({ color: 0xddddcc, alpha: wi * 0.08 });
+          .fill({ color: 0xccccbb, alpha: wi * 0.12 });
         const fogCount = Math.floor(2 + wi * 3);
         for (let f = 0; f < fogCount; f++) {
           const seed = f * 137.5;
@@ -621,18 +601,9 @@ export class Renderer {
       }
 
       if (state.weather.type === 'wind') {
-        // Batch all wind lines into a single stroke call
-        const windAngle = state.weather.windAngle;
-        const lineCount = Math.floor(wi * 60);
-        const cos = Math.cos(windAngle);
-        const sin = Math.sin(windAngle);
-        for (let i = 0; i < lineCount; i++) {
-          const bx = ((i * 4793 + Math.floor(time * 100 * Math.abs(cos + 0.1))) % this.worldW);
-          const by = ((i * 6151 + Math.floor(time * 100 * Math.abs(sin + 0.1))) % this.worldH);
-          const len = 15 + (i % 10) * 3;
-          this.weatherLayer.moveTo(bx, by).lineTo(bx + cos * len, by + sin * len);
-        }
-        if (lineCount > 0) this.weatherLayer.stroke({ color: 0x99aabb, width: 1, alpha: wi * 0.22 });
+        this.weatherLayer
+          .rect(0, 0, this.worldW, this.worldH)
+          .fill({ color: 0xaaaaaa, alpha: wi * 0.04 });
       }
     }
 
@@ -643,20 +614,7 @@ export class Renderer {
       if (nightAlpha > 0.01) {
         this.nightOverlay
           .rect(0, 0, this.worldW, this.worldH)
-          .fill({ color: 0x05050f, alpha: nightAlpha });
-
-        if (nightAlpha > 0.15) {
-          const starCount = Math.floor(nightAlpha * 120);
-          for (let i = 0; i < starCount; i++) {
-            const sx = ((i * 7919 + 1013) % this.worldW);
-            const sy = ((i * 6271 + 2017) % (this.worldH * 0.7)); // Stars in upper 70%
-            const twinkle = 0.4 + 0.6 * Math.abs(Math.sin(time * 1.2 + i * 2.3));
-            const size = (i % 5 === 0) ? 1.5 : 1;
-            this.nightOverlay
-              .circle(sx, sy, size)
-              .fill({ color: 0xeeeeff, alpha: nightAlpha * twinkle });
-          }
-        }
+          .fill({ color: 0x0a0a15, alpha: nightAlpha });
       }
     }
   }
