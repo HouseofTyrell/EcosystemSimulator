@@ -1,6 +1,6 @@
 // Main entry point - wires simulation, renderer, and UI together
 
-import { Simulation } from './sim/simulation';
+import { SimWorkerClient } from './sim/sim-worker-client';
 import { Renderer } from './render/renderer';
 import { UIOverlay } from './ui/overlay';
 import { PopulationGraph } from './ui/graph';
@@ -15,7 +15,7 @@ import { clampAllPanels, makeDraggable } from './ui/draggable';
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
 
 class App {
-  private sim: Simulation;
+  private sim: SimWorkerClient;
   private renderer: Renderer;
   private ui!: UIOverlay;
   private graph!: PopulationGraph;
@@ -39,27 +39,26 @@ class App {
 
   constructor() {
     this.seed = Math.floor(Math.random() * 999999);
-    this.sim = new Simulation({ seed: this.seed });
+    this.sim = new SimWorkerClient({ seed: this.seed });
     this.renderer = new Renderer();
   }
 
   async start(): Promise<void> {
+    await this.sim.waitForReady();
     const container = document.getElementById('app')!;
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const worldW = this.sim.renderState.config.worldWidth;
+    const worldH = this.sim.renderState.config.worldHeight;
 
-    // Update sim world size to match screen
-    this.sim.state.config.worldWidth = width;
-    this.sim.state.config.worldHeight = height;
-    this.sim.reset(this.seed);
-    this.updatePopCaps();
-
-    this.camera = new Camera(width, height);
+    this.camera = new Camera(worldW, worldH, width, height);
 
     await this.renderer.init({
       container,
       width,
       height,
+      worldWidth: worldW,
+      worldHeight: worldH,
       trails: this.trails,
     });
 
@@ -91,14 +90,14 @@ class App {
     this.tooltip = new Tooltip(document.body);
 
     this.minimap = new Minimap(document.body);
-    this.minimap.onClick((x, y) => this.camera.centerOn(x, y), this.sim.state.config);
+    this.minimap.onClick((x, y) => this.camera.centerOn(x, y), this.sim.renderState.config);
 
     this.renderer.app.canvas.addEventListener('click', (e) => {
       if (!this.audio.isEnabled) this.audio.init();
       const rect = this.renderer.app.canvas.getBoundingClientRect();
       const worldX = this.camera.screenToWorldX(e.clientX - rect.left, rect.width);
       const worldY = this.camera.screenToWorldY(e.clientY - rect.top, rect.height);
-      this.inspector.tryPin(this.sim.state, worldX, worldY);
+      this.inspector.tryPin(this.sim.renderState as any, worldX, worldY);
     });
 
     // Mouse wheel / trackpad zoom
@@ -163,9 +162,9 @@ class App {
         const d2 = dx * dx + dy * dy;
         if (d2 < bestDist) { bestDist = d2; best = c; }
       };
-      for (const c of this.sim.state.herbivores) check(c);
-      for (const c of this.sim.state.predators) check(c);
-      for (const c of this.sim.state.scavengers) check(c);
+      for (const c of this.sim.renderState.herbivores) check(c);
+      for (const c of this.sim.renderState.predators) check(c);
+      for (const c of this.sim.renderState.scavengers) check(c);
 
       if (best) {
         const label = best.type.charAt(0).toUpperCase() + best.type.slice(1);
@@ -191,10 +190,7 @@ class App {
       const h = window.innerHeight;
       this.renderer.resize(w, h);
       this.graph.resize();
-      this.sim.state.config.worldWidth = w;
-      this.sim.state.config.worldHeight = h;
       this.camera.resize(w, h);
-      this.updatePopCaps();
       clampAllPanels();
     });
 
@@ -238,7 +234,7 @@ class App {
 
     // Follow creature if tracking one
     if (this.camera.state.following !== null) {
-      const all = [...this.sim.state.herbivores, ...this.sim.state.predators, ...this.sim.state.scavengers];
+      const all = [...this.sim.renderState.herbivores, ...this.sim.renderState.predators, ...this.sim.renderState.scavengers];
       const target = all.find(c => c.id === this.camera.state.following);
       if (target) {
         this.camera.centerOn(target.pos.x, target.pos.y);
@@ -249,21 +245,21 @@ class App {
     }
 
     // Render every frame
-    this.renderer.render(this.sim.state, this.sim.state.time, this.inspector.pinnedIds, this.camera.state);
-    this.ui.updateStats(this.sim.state.stats, this.sim.state.time, this.fps);
-    this.graph.update(this.sim.state.stats, this.sim.state.time);
-    this.inspector.autoPin(this.sim.state);
-    this.inspector.update(this.sim.state, this.sim.state.time);
-    this.feed.update(this.sim.state.feedEvents, this.sim.state.time);
-    this.minimap.update(this.sim.state, this.camera.state);
+    this.renderer.render(this.sim.renderState as any, this.sim.renderState.time, this.inspector.pinnedIds, this.camera.state);
+    this.ui.updateStats(this.sim.renderState.stats, this.sim.renderState.time, this.fps);
+    this.graph.update(this.sim.renderState.stats, this.sim.renderState.time);
+    this.inspector.autoPin(this.sim.renderState as any);
+    this.inspector.update(this.sim.renderState as any, this.sim.renderState.time);
+    this.feed.update(this.sim.renderState.feedEvents, this.sim.renderState.time);
+    this.minimap.update(this.sim.renderState as any, this.camera.state);
 
     // Audio: update ambient drone and rain
-    this.audio.updateAmbient(this.sim.state.season, this.sim.state.dayPhase);
-    const rainIntensity = this.sim.state.weather.type === 'rain' ? this.sim.state.weather.intensity : 0;
+    this.audio.updateAmbient(this.sim.renderState.season, this.sim.renderState.dayPhase);
+    const rainIntensity = this.sim.renderState.weather.type === 'rain' ? this.sim.renderState.weather.intensity : 0;
     this.audio.updateRain(rainIntensity);
 
     // Audio: play event stings for new feed events
-    const feedEvents = this.sim.state.feedEvents;
+    const feedEvents = this.sim.renderState.feedEvents;
     for (let i = this.lastFeedCount; i < feedEvents.length; i++) {
       const text = feedEvents[i].text;
       if (text.includes('extinct')) {
@@ -279,10 +275,7 @@ class App {
 
   private reset(seed: number): void {
     this.seed = seed;
-    this.sim.state.config.worldWidth = window.innerWidth;
-    this.sim.state.config.worldHeight = window.innerHeight;
     this.sim.reset(seed);
-    this.updatePopCaps();
     this.accumulator = 0;
     this.ui.updateSeed(seed);
     this.graph.reset();
@@ -291,15 +284,6 @@ class App {
     this.lastFeedCount = 0;
     this.camera.resetView();
     this.renderer.setTrails(this.trails); // Clear trails on reset
-  }
-
-  private updatePopCaps(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const scale = (w * h) / (1920 * 1080);
-    this.sim.state.config.maxHerbivores = Math.floor(800 * scale);
-    this.sim.state.config.maxPredators = Math.floor(250 * scale);
-    this.sim.state.config.maxScavengers = Math.floor(150 * scale);
   }
 
   private handleConfigChange(key: string, value: number | boolean): void {
@@ -336,11 +320,20 @@ class App {
     }
 
     if (key === 'wrapWorld') {
-      const wrap = value as boolean;
-      this.sim.state.config.wrapWorld = wrap;
-      this.sim.herbHash.wrap = wrap;
-      this.sim.predHash.wrap = wrap;
-      this.sim.scavHash.wrap = wrap;
+      this.sim.setConfig('wrapWorld', value as boolean);
+      return;
+    }
+
+    if (key === 'worldSize') {
+      const sizes: Record<string, [number, number]> = {
+        small: [2000, 2000],
+        medium: [4000, 4000],
+        large: [6000, 6000],
+      };
+      const [w, h] = sizes[value as unknown as string] || sizes.medium;
+      this.sim.setWorldSize(w, h);
+      this.camera.setWorldSize(w, h);
+      this.camera.resetView();
       return;
     }
 
@@ -360,10 +353,7 @@ class App {
       return;
     }
 
-    const config = this.sim.state.config;
-    if (key in config) {
-      (config as unknown as Record<string, number | boolean>)[key] = value;
-    }
+    this.sim.setConfig(key, value);
   }
 }
 

@@ -12,22 +12,32 @@ export class Camera {
   state: CameraState;
   private worldW: number;
   private worldH: number;
+  private screenW: number;
+  private screenH: number;
 
-  constructor(worldW: number, worldH: number) {
+  constructor(worldW: number, worldH: number, screenW?: number, screenH?: number) {
     this.worldW = worldW;
     this.worldH = worldH;
+    this.screenW = screenW ?? worldW;
+    this.screenH = screenH ?? worldH;
+    const zoom = Math.min(this.screenW / worldW, this.screenH / worldH);
     this.state = {
       x: worldW / 2,
       y: worldH / 2,
-      zoom: 1,
+      zoom,
       targetX: worldW / 2,
       targetY: worldH / 2,
-      targetZoom: 1,
+      targetZoom: zoom,
       following: null,
     };
   }
 
-  resize(worldW: number, worldH: number): void {
+  resize(screenW: number, screenH: number): void {
+    this.screenW = screenW;
+    this.screenH = screenH;
+  }
+
+  setWorldSize(worldW: number, worldH: number): void {
     this.worldW = worldW;
     this.worldH = worldH;
   }
@@ -85,7 +95,7 @@ export class Camera {
   resetView(): void {
     this.state.targetX = this.worldW / 2;
     this.state.targetY = this.worldH / 2;
-    this.state.targetZoom = 1;
+    this.state.targetZoom = Math.min(this.screenW / this.worldW, this.screenH / this.worldH);
     this.state.following = null;
   }
 

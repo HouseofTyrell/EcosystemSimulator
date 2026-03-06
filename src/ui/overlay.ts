@@ -157,6 +157,14 @@ export class UIOverlay {
           <label>Sound</label>
           <input type="checkbox" data-toggle="sound" />
         </div>
+        <div class="setting-row">
+          <label>World Size</label>
+          <select data-key="worldSize">
+            <option value="small">Small (2000)</option>
+            <option value="medium" selected>Medium (4000)</option>
+            <option value="large">Large (6000)</option>
+          </select>
+        </div>
         <div class="settings-divider"></div>
         <div class="settings-section-label">Simulation</div>
         <div class="setting-row">
@@ -242,6 +250,14 @@ export class UIOverlay {
         cb.onConfigChange(key, val);
       });
     });
+
+    // World size select
+    const worldSelect = this.settingsEl.querySelector('select[data-key="worldSize"]') as HTMLSelectElement | null;
+    if (worldSelect) {
+      worldSelect.addEventListener('change', () => {
+        cb.onConfigChange('worldSize', worldSelect.value as unknown as number);
+      });
+    }
 
     // Display toggles
     const toggles = this.settingsEl.querySelectorAll('input[type="checkbox"]');
