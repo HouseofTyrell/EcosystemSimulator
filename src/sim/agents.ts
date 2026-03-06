@@ -32,54 +32,69 @@ function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG)
   return rng.next() < chance;
 }
 
-/** Soft boundary repulsion. Returns steering force pushing away from edges.
- *  Uses cubic ramp so force is gentle at margin edge but overwhelming near wall. */
+/** Soft boundary steering force — gentle nudge in outer zone */
 function boundaryRepulsion(pos: Vec2, vel: Vec2, config: SimConfig): Vec2 {
-  const margin = 400;
-  const strength = 800;
+  const margin = 500;
+  const strength = 600;
   let fx = 0, fy = 0;
 
   if (pos.x < margin) {
     const t = 1 - pos.x / margin;
-    fx += strength * t * t * t;
-    // Dampen velocity toward wall when very close
-    if (t > 0.7 && vel.x < 0) vel.x *= 0.85;
+    fx += strength * t * t;
   } else if (pos.x > config.worldWidth - margin) {
     const t = 1 - (config.worldWidth - pos.x) / margin;
-    fx -= strength * t * t * t;
-    if (t > 0.7 && vel.x > 0) vel.x *= 0.85;
+    fx -= strength * t * t;
   }
 
   if (pos.y < margin) {
     const t = 1 - pos.y / margin;
-    fy += strength * t * t * t;
-    if (t > 0.7 && vel.y < 0) vel.y *= 0.85;
+    fy += strength * t * t;
   } else if (pos.y > config.worldHeight - margin) {
     const t = 1 - (config.worldHeight - pos.y) / margin;
-    fy -= strength * t * t * t;
-    if (t > 0.7 && vel.y > 0) vel.y *= 0.85;
+    fy -= strength * t * t;
   }
 
   return { x: fx, y: fy };
 }
 
-/** Dampen velocity component toward wall when creature is clamped at boundary */
-function clampWithBounce(pos: Vec2, vel: Vec2, config: SimConfig): void {
-  const pad = 2;
-  if (pos.x < 0) {
-    pos.x = pad;
-    if (vel.x < 0) vel.x = -vel.x * 0.3;
-  } else if (pos.x >= config.worldWidth) {
-    pos.x = config.worldWidth - pad;
-    if (vel.x > 0) vel.x = -vel.x * 0.3;
+/** Hard boundary enforcement — directly override velocity near edges.
+ *  Called AFTER all steering and velocity updates, before position integration.
+ *  This is the final authority — no steering force can override this. */
+function enforceHardBoundary(pos: Vec2, vel: Vec2, config: SimConfig): void {
+  const hardZone = 150; // inner zone where velocity is forcibly redirected
+  const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y) || 1;
+
+  // Left wall
+  if (pos.x < hardZone && vel.x < 0) {
+    const t = 1 - pos.x / hardZone; // 0 at edge of zone, 1 at wall
+    vel.x = spd * t * 0.5; // force velocity away from wall
+    vel.y *= (1 - t * 0.5); // reduce parallel sliding
   }
-  if (pos.y < 0) {
-    pos.y = pad;
-    if (vel.y < 0) vel.y = -vel.y * 0.3;
-  } else if (pos.y >= config.worldHeight) {
-    pos.y = config.worldHeight - pad;
-    if (vel.y > 0) vel.y = -vel.y * 0.3;
+  // Right wall
+  if (pos.x > config.worldWidth - hardZone && vel.x > 0) {
+    const t = 1 - (config.worldWidth - pos.x) / hardZone;
+    vel.x = -spd * t * 0.5;
+    vel.y *= (1 - t * 0.5);
   }
+  // Top wall
+  if (pos.y < hardZone && vel.y < 0) {
+    const t = 1 - pos.y / hardZone;
+    vel.y = spd * t * 0.5;
+    vel.x *= (1 - t * 0.5);
+  }
+  // Bottom wall
+  if (pos.y > config.worldHeight - hardZone && vel.y > 0) {
+    const t = 1 - (config.worldHeight - pos.y) / hardZone;
+    vel.y = -spd * t * 0.5;
+    vel.x *= (1 - t * 0.5);
+  }
+
+  // Absolute clamp — should rarely trigger now
+  const pad = 5;
+  if (pos.x < 0) { pos.x = pad; vel.x = Math.abs(vel.x); }
+  else if (pos.x >= config.worldWidth) { pos.x = config.worldWidth - pad; vel.x = -Math.abs(vel.x); }
+  if (pos.y < 0) { pos.y = pad; vel.y = Math.abs(vel.y); }
+  else if (pos.y >= config.worldHeight) { pos.y = config.worldHeight - pad; vel.y = -Math.abs(vel.y); }
 }
 
 function getLifeStage(age: number, maxAge: number): 'baby' | 'adult' | 'elder' {
@@ -1213,7 +1228,8 @@ export function updateHerbivores(
       h.vel.y = Math.sin(angle) * 10;
     }
 
-    // Move
+    // Move — enforce boundary before integration so creatures can't move toward walls
+    if (!config.wrapWorld) enforceHardBoundary(h.pos, h.vel, config);
     const dayModsH = getDayNightModifiers(state.dayPhase);
     const spdMul = getSpeedMultiplier(stage) * dayModsH.herbSpeedMul;
     h.pos.x += h.vel.x * dt * spdMul;
@@ -1228,7 +1244,7 @@ export function updateHerbivores(
       h.pos.x = ((h.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       h.pos.y = ((h.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      clampWithBounce(h.pos, h.vel, config);
+      enforceHardBoundary(h.pos, h.vel, config);
     }
 
     // Disease spread and damage
@@ -1451,7 +1467,8 @@ export function updatePredators(
       p.vel.y = Math.sin(angle) * 12;
     }
 
-    // Move
+    // Move — enforce boundary before integration
+    if (!config.wrapWorld) enforceHardBoundary(p.pos, p.vel, config);
     const dayModsP = getDayNightModifiers(state.dayPhase);
     const spdMulP = getSpeedMultiplier(stage) * dayModsP.predSpeedMul;
     p.pos.x += p.vel.x * dt * spdMulP;
@@ -1466,7 +1483,7 @@ export function updatePredators(
       p.pos.x = ((p.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       p.pos.y = ((p.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      clampWithBounce(p.pos, p.vel, config);
+      enforceHardBoundary(p.pos, p.vel, config);
     }
 
     // Disease spread and damage
@@ -1670,6 +1687,8 @@ export function updateScavengers(
       s.vel.y = Math.sin(angle) * 10;
     }
 
+    // Enforce boundary before integration
+    if (!config.wrapWorld) enforceHardBoundary(s.pos, s.vel, config);
     const spdMulS = getSpeedMultiplier(stage);
     s.pos.x += s.vel.x * dt * spdMulS;
     s.pos.y += s.vel.y * dt * spdMulS;
@@ -1683,7 +1702,7 @@ export function updateScavengers(
       s.pos.x = ((s.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       s.pos.y = ((s.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      clampWithBounce(s.pos, s.vel, config);
+      enforceHardBoundary(s.pos, s.vel, config);
     }
 
     // Disease spread and damage
@@ -1881,7 +1900,8 @@ export function updateInsects(
       ins.vel.y = Math.sin(angle) * 10;
     }
 
-    // Move
+    // Move — enforce boundary before integration
+    if (!config.wrapWorld) enforceHardBoundary(ins.pos, ins.vel, config);
     const spdMul = getSpeedMultiplier(stage);
     ins.pos.x += ins.vel.x * dt * spdMul;
     ins.pos.y += ins.vel.y * dt * spdMul;
@@ -1895,7 +1915,7 @@ export function updateInsects(
       ins.pos.x = ((ins.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
       ins.pos.y = ((ins.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
     } else {
-      clampWithBounce(ins.pos, ins.vel, config);
+      enforceHardBoundary(ins.pos, ins.vel, config);
     }
 
     // Death

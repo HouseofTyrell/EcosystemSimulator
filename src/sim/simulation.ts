@@ -684,14 +684,11 @@ export class Simulation {
     }
     this.prevWeatherType = state.weather.type;
 
-    // Lineage milestones
+    // Lineage milestones (only major ones to reduce feed spam)
     for (const [lid, count] of state.lineageCounts) {
       const prev = this.prevLineageCounts.get(lid) || 0;
-      if (count >= 5 && prev < 5) {
-        feed.push({ time: t, text: `Line #${lid} dominant (${count})`, color: '#aabbcc' });
-      }
-      if (count >= 10 && prev < 10) {
-        feed.push({ time: t, text: `Line #${lid} thriving (${count})`, color: '#ccddee' });
+      if (count >= 25 && prev < 25) {
+        feed.push({ time: t, text: `Line #${lid} flourishing (${count})`, color: '#ccddee' });
       }
     }
     // Lineage endings
