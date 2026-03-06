@@ -83,6 +83,7 @@ export class UIOverlay {
       <div><span class="key">E</span> Toggle trait sparklines</div>
       <div><span class="key">G</span> Toggle graph</div>
       <div><span class="key">F</span> Toggle event feed</div>
+      <div><span class="key">W</span> Toggle food web</div>
       <div><span class="key">Esc</span> Clear inspector</div>
       <div><span class="key">M</span> Toggle sound</div>
       <div><span class="key">H</span> Toggle this help</div>
@@ -144,6 +145,10 @@ export class UIOverlay {
         <div class="setting-toggle-row">
           <label>Event Feed</label>
           <input type="checkbox" checked data-toggle="feed" />
+        </div>
+        <div class="setting-toggle-row">
+          <label>Food Web</label>
+          <input type="checkbox" data-toggle="foodweb" />
         </div>
         <div class="setting-toggle-row">
           <label>Help</label>
@@ -344,6 +349,10 @@ export class UIOverlay {
         case 'KeyF':
           cb.onConfigChange('feed', true);
           this.syncToggle('feed', !this.getToggleState('feed'));
+          break;
+        case 'KeyW':
+          cb.onConfigChange('foodweb', true);
+          this.syncToggle('foodweb', !this.getToggleState('foodweb'));
           break;
         case 'KeyM':
           cb.onConfigChange('sound', true);

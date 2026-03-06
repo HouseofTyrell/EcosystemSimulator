@@ -10,6 +10,7 @@ import { Camera } from './camera';
 import { Tooltip } from './ui/tooltip';
 import { Minimap } from './ui/minimap';
 import { AudioManager } from './audio/audio-manager';
+import { FoodChainDiagram } from './ui/food-chain';
 import { clampAllPanels, makeDraggable } from './ui/draggable';
 
 const SIM_DT = 1 / 60; // Fixed timestep: 60Hz
@@ -21,6 +22,7 @@ class App {
   private graph!: PopulationGraph;
   private inspector!: CreatureInspector;
   private feed!: EventFeed;
+  private foodChain!: FoodChainDiagram;
   private camera!: Camera;
   private tooltip!: Tooltip;
   private minimap!: Minimap;
@@ -88,6 +90,8 @@ class App {
     this.inspector = new CreatureInspector(container);
 
     this.feed = new EventFeed(container);
+
+    this.foodChain = new FoodChainDiagram(container);
 
     this.tooltip = new Tooltip(document.body);
 
@@ -273,6 +277,7 @@ class App {
     this.inspector.autoPin(this.sim.renderState as any);
     this.inspector.update(this.sim.renderState as any, this.sim.renderState.time);
     this.feed.update(this.sim.renderState.feedEvents, this.sim.renderState.time);
+    this.foodChain.update(this.sim.renderState.stats);
     this.minimap.update(this.sim.renderState as any, this.camera.state);
 
     // Audio: update ambient drone and rain
@@ -367,6 +372,12 @@ class App {
 
     if (key === 'feed') {
       this.feed.toggle();
+      return;
+    }
+
+    if (key === 'foodweb') {
+      this.foodChain.toggle();
+      this.ui.syncToggle('foodweb', this.foodChain.isVisible());
       return;
     }
 

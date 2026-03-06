@@ -594,10 +594,51 @@ canvas {
 }
 #minimap canvas { display: block; }
 
+/* Food Chain Diagram */
+#food-chain {
+  position: absolute;
+  top: 16px;
+  right: 270px;
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(34, 51, 68, 0.5);
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+#food-chain .food-chain-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: grab;
+  color: #8899aa;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+#food-chain .food-chain-toggle {
+  color: #667788;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#food-chain .food-chain-canvas {
+  display: block;
+  width: 200px;
+  height: 160px;
+}
+
 /* Draggable panel hover hint */
 #stats:hover,
 #settings:hover,
-#event-feed:hover {
+#event-feed:hover,
+#food-chain:hover {
   border-color: rgba(68, 102, 136, 0.6);
 }
 
