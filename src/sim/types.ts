@@ -30,6 +30,14 @@ export interface ScavengerTraits {
   size: number;
 }
 
+export interface InsectTraits {
+  speed: number;
+  visionRange: number;
+  turnRate: number;
+  metabolism: number;
+  size: number;
+}
+
 export interface SpatialMemory {
   foodQuality: Float32Array;   // 64 cells (8x8)
   dangerLevel: Float32Array;
@@ -78,7 +86,12 @@ export interface Scavenger extends Agent {
   traits: ScavengerTraits;
 }
 
-export type Creature = Herbivore | Predator | Scavenger;
+export interface Insect extends Agent {
+  type: 'insect';
+  traits: InsectTraits;
+}
+
+export type Creature = Herbivore | Predator | Scavenger | Insect;
 
 export interface FeedEvent {
   time: number;
@@ -130,6 +143,13 @@ export interface SimConfig {
   scavengerReproductionCooldownTime: number;
   scavengerMaxAge: number;
 
+  // Insect defaults
+  initialInsects: number;
+  insectReproductionEnergy: number;
+  insectReproductionCost: number;
+  insectReproductionCooldownTime: number;
+  insectMaxAge: number;
+
   // Evolution
   mutationRate: number;
   bigMutationEnabled: boolean;
@@ -145,6 +165,7 @@ export interface SimConfig {
   maxHerbivores: number;
   maxPredators: number;
   maxScavengers: number;
+  maxInsects: number;
 }
 
 export interface SimState {
@@ -159,6 +180,7 @@ export interface SimState {
   herbivores: Herbivore[];
   predators: Predator[];
   scavengers: Scavenger[];
+  insects: Insect[];
   corpses: Corpse[];
   nextId: number;
   stats: SimStats;
@@ -174,6 +196,7 @@ export interface SimState {
   herbTraitMemory: HerbivoreTraits[];
   predTraitMemory: PredatorTraits[];
   scavTraitMemory: ScavengerTraits[];
+  insectTraitMemory: InsectTraits[];
   reintroductionTime: number;
   recentDeaths: Map<number, string>; // id -> deathCause for inspector
 }
@@ -202,11 +225,14 @@ export interface SimStats {
   packHunterCount: number;
   vultureCount: number;
   beetleCount: number;
+  insectCount: number;
+  antCount: number;
+  beeCount: number;
 }
 
 export interface SimEvent {
   type: 'birth' | 'death';
-  creatureType: 'herbivore' | 'predator' | 'scavenger';
+  creatureType: 'herbivore' | 'predator' | 'scavenger' | 'insect';
   x: number;
   y: number;
 }
@@ -215,7 +241,7 @@ export interface Corpse {
   x: number;
   y: number;
   energy: number;
-  creatureType: 'herbivore' | 'predator' | 'scavenger';
+  creatureType: 'herbivore' | 'predator' | 'scavenger' | 'insect';
   decayTimer: number;
   maxDecay: number;
 }
@@ -267,6 +293,12 @@ export const DEFAULT_CONFIG: SimConfig = {
   scavengerReproductionCooldownTime: 10,
   scavengerMaxAge: 95,
 
+  initialInsects: 120,
+  insectReproductionEnergy: 35,
+  insectReproductionCost: 15,
+  insectReproductionCooldownTime: 4,
+  insectMaxAge: 50,
+
   mutationRate: 0.1,
   bigMutationEnabled: false,
   bigMutationChance: 0.02,
@@ -278,4 +310,5 @@ export const DEFAULT_CONFIG: SimConfig = {
   maxHerbivores: 5000,
   maxPredators: 2000,
   maxScavengers: 1500,
+  maxInsects: 3000,
 };

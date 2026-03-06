@@ -4,6 +4,7 @@ export interface GeneratedTextures {
   herbivore: Texture;
   predator: Texture;
   scavenger: Texture;
+  insect: Texture;
   plant: Texture;
   particle: Texture;
   shadow: Texture;
@@ -45,6 +46,13 @@ export function generateTextures(app: Application): GeneratedTextures {
   scavG.ellipse(4, 0, 2.5, 2);           // small head
   scavG.fill({ color: 0xffffff });
   const scavenger = app.renderer.generateTexture({ target: scavG, resolution: 2 });
+
+  // Insect: tiny round dot (~3x2 pixels)
+  const insectG = new Graphics();
+  insectG.ellipse(0, 0, 3, 2);
+  insectG.fill({ color: 0xffffff });
+  const insect = app.renderer.generateTexture({ target: insectG, resolution: 2 });
+  insectG.destroy();
 
   // Plant: tiny soft dot
   const plantG = new Graphics();
@@ -92,5 +100,5 @@ export function generateTextures(app: Application): GeneratedTextures {
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, scavenger, plant, particle, shadow, leg };
+  return { herbivore, predator, scavenger, insect, plant, particle, shadow, leg };
 }

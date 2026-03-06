@@ -1,7 +1,7 @@
 // Main simulation orchestrator
 // Pure logic - no DOM, no rendering
 
-import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Corpse, WeatherState, HerbivoreTraits, PredatorTraits, ScavengerTraits } from './types';
+import type { SimConfig, SimState, SimStats, Herbivore, Predator, Scavenger, Insect, Corpse, WeatherState, HerbivoreTraits, PredatorTraits, ScavengerTraits, InsectTraits } from './types';
 import { DEFAULT_CONFIG, TerrainType } from './types';
 import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
@@ -16,9 +16,11 @@ import {
   createHerbivore,
   createPredator,
   createScavenger,
+  createInsect,
   updateHerbivores,
   updatePredators,
   updateScavengers,
+  updateInsects,
 } from './agents';
 import { generateTerrain, getTerrainAt } from './terrain';
 import { updateEvents, getEventPlantMultiplier } from './events';
@@ -50,12 +52,14 @@ export class Simulation {
   herbHash: SpatialHash<Herbivore>;
   predHash: SpatialHash<Predator>;
   scavHash: SpatialHash<Scavenger>;
+  insectHash: SpatialHash<Insect>;
   private diffusionAccum: number = 0;
   private readonly DIFFUSION_INTERVAL = 0.5; // seconds between diffusion
-  private spawnQueues: { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue };
+  private spawnQueues: { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue; insect: SpawnQueue };
   private prevHerbCount: number = 0;
   private prevPredCount: number = 0;
   private prevScavCount: number = 0;
+  private prevInsectCount: number = 0;
   private milestones = new Set<string>();
   private prevWeatherType: string = 'clear';
   private prevLineageCounts: Map<number, number> = new Map();
@@ -66,9 +70,11 @@ export class Simulation {
     this.herbHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
     this.predHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
     this.scavHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
+    this.insectHash = new SpatialHash(fullConfig.worldWidth, fullConfig.worldHeight, fullConfig.spatialCellSize);
     this.herbHash.wrap = fullConfig.wrapWorld;
     this.predHash.wrap = fullConfig.wrapWorld;
     this.scavHash.wrap = fullConfig.wrapWorld;
+    this.insectHash.wrap = fullConfig.wrapWorld;
 
     this.state = {
       config: fullConfig,
@@ -82,6 +88,7 @@ export class Simulation {
       herbivores: [],
       predators: [],
       scavengers: [],
+      insects: [],
       corpses: [],
       nextId: 0,
       stats: this.emptyStats(),
@@ -96,6 +103,7 @@ export class Simulation {
       herbTraitMemory: [],
       predTraitMemory: [],
       scavTraitMemory: [],
+      insectTraitMemory: [],
       reintroductionTime: -Infinity,
       recentDeaths: new Map(),
     };
@@ -128,24 +136,30 @@ export class Simulation {
       packHunterCount: 0,
       vultureCount: 0,
       beetleCount: 0,
+      insectCount: 0,
+      antCount: 0,
+      beeCount: 0,
     };
   }
 
-  private createSpawnQueues(config: SimConfig): { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue } {
+  private createSpawnQueues(config: SimConfig): { herb: SpawnQueue; pred: SpawnQueue; scav: SpawnQueue; insect: SpawnQueue } {
     return {
       herb: { remaining: config.initialHerbivores, interval: 3, timer: 0, startDelay: 3 },
       pred: { remaining: config.initialPredators, interval: 5, timer: 0, startDelay: 25 },
       scav: { remaining: config.initialScavengers, interval: 4, timer: 0, startDelay: 18 },
+      insect: { remaining: config.initialInsects, interval: 2, timer: 0, startDelay: 5 },
     };
   }
 
-  private spawnFromQueue(x: number, y: number, type: 'herbivore' | 'predator' | 'scavenger'): void {
+  private spawnFromQueue(x: number, y: number, type: 'herbivore' | 'predator' | 'scavenger' | 'insect'): void {
     const state = this.state;
     const config = state.config;
     if (type === 'herbivore') {
       state.herbivores.push(createHerbivore(state.nextId++, x, y, this.rng, config));
     } else if (type === 'predator') {
       state.predators.push(createPredator(state.nextId++, x, y, this.rng, config));
+    } else if (type === 'insect') {
+      state.insects.push(createInsect(state.nextId++, x, y, this.rng, config));
     } else {
       state.scavengers.push(createScavenger(state.nextId++, x, y, this.rng, config));
     }
@@ -199,6 +213,17 @@ export class Simulation {
         queues.scav.remaining--;
         const pos = this.findLandPosition();
         this.spawnFromQueue(pos.x, pos.y, 'scavenger');
+      }
+    }
+
+    // Insects: spawn early alongside herbivores
+    if (queues.insect.remaining > 0 && time >= queues.insect.startDelay) {
+      queues.insect.timer += dt;
+      if (queues.insect.timer >= queues.insect.interval) {
+        queues.insect.timer -= queues.insect.interval;
+        queues.insect.remaining--;
+        const pos = this.findLandPosition();
+        this.spawnFromQueue(pos.x, pos.y, 'insect');
       }
     }
   }
@@ -305,11 +330,18 @@ export class Simulation {
         this.scavHash.insert(state.scavengers[i]);
       }
     }
+    this.insectHash.clear();
+    for (let i = 0; i < state.insects.length; i++) {
+      if (state.insects[i].alive) {
+        this.insectHash.insert(state.insects[i]);
+      }
+    }
 
     // Update agents
     const newHerbs = updateHerbivores(state, dt, this.herbHash, this.predHash, this.rng, state.events);
-    const newPreds = updatePredators(state, dt, this.herbHash, this.predHash, this.rng, state.events);
+    const newPreds = updatePredators(state, dt, this.herbHash, this.predHash, this.rng, state.events, this.insectHash);
     const newScavs = updateScavengers(state, dt, this.scavHash, this.rng, state.events);
+    const newInsects = updateInsects(state, dt, this.insectHash, this.predHash, this.rng, state.events);
 
     // Create corpses from dead creatures
     for (let i = 0; i < state.herbivores.length; i++) {
@@ -351,20 +383,36 @@ export class Simulation {
         });
       }
     }
+    for (let i = 0; i < state.insects.length; i++) {
+      const ins = state.insects[i];
+      if (!ins.alive) {
+        state.corpses.push({
+          x: ins.pos.x,
+          y: ins.pos.y,
+          energy: Math.max(3, ins.traits.size * 3),
+          creatureType: 'insect',
+          decayTimer: 8,
+          maxDecay: 8,
+        });
+      }
+    }
 
     // Capture death causes for inspector before removing
     state.recentDeaths.clear();
     for (const h of state.herbivores) if (!h.alive && h.deathCause) state.recentDeaths.set(h.id, h.deathCause);
     for (const p of state.predators) if (!p.alive && p.deathCause) state.recentDeaths.set(p.id, p.deathCause);
     for (const s of state.scavengers) if (!s.alive && s.deathCause) state.recentDeaths.set(s.id, s.deathCause);
+    for (const ins of state.insects) if (!ins.alive && ins.deathCause) state.recentDeaths.set(ins.id, ins.deathCause);
 
     // Remove dead, add newborns
     state.herbivores = state.herbivores.filter(h => h.alive);
     state.predators = state.predators.filter(p => p.alive);
     state.scavengers = state.scavengers.filter(s => s.alive);
+    state.insects = state.insects.filter(ins => ins.alive);
     state.herbivores.push(...newHerbs);
     state.predators.push(...newPreds);
     state.scavengers.push(...newScavs);
+    state.insects.push(...newInsects);
 
     // Extinction recovery: adaptive reintroduction with trait memory
     if (state.herbivores.length === 0 && this.rng.next() < 0.02) {
@@ -420,6 +468,26 @@ export class Simulation {
         );
         s.energy = config.scavengerReproductionEnergy * 1.2;
         state.scavengers.push(s);
+      }
+      state.reintroductionTime = state.time;
+    }
+    if (state.insects.length === 0 && this.rng.next() < 0.04) {
+      const traits = avgTraits(state.insectTraitMemory) as InsectTraits | null;
+      const cx = this.rng.range(100, config.worldWidth - 100);
+      const cy = this.rng.range(100, config.worldHeight - 100);
+      for (let i = 0; i < 20; i++) {
+        const sub = i < 10 ? 0 : 1;
+        const ins = createInsect(
+          state.nextId++,
+          cx + this.rng.range(-60, 60),
+          cy + this.rng.range(-60, 60),
+          this.rng,
+          config,
+          traits || undefined,
+          sub
+        );
+        ins.energy = config.insectReproductionEnergy * 1.2;
+        state.insects.push(ins);
       }
       state.reintroductionTime = state.time;
     }
@@ -499,10 +567,20 @@ export class Simulation {
       stats.avgScavengerSize = sizeSum / scavs.length;
     }
 
+    // Insect stats
+    const insects = state.insects;
+    stats.insectCount = insects.length;
+    let antCount = 0, beeCount = 0;
+    for (const ins of insects) {
+      if (ins.subspecies === 0) antCount++; else beeCount++;
+    }
+    stats.antCount = antCount;
+    stats.beeCount = beeCount;
+
     // Lineage population counts and max generation
     state.lineageCounts.clear();
     let maxGen = 0;
-    const allCreatures = [...herbs, ...preds, ...scavs];
+    const allCreatures = [...herbs, ...preds, ...scavs, ...insects];
     for (let i = 0; i < allCreatures.length; i++) {
       const c = allCreatures[i];
       state.lineageCounts.set(c.lineageId, (state.lineageCounts.get(c.lineageId) || 0) + 1);
@@ -549,6 +627,7 @@ export class Simulation {
       { name: 'Herbivores', count: state.herbivores.length, prev: this.prevHerbCount, color: '#55ddaa' },
       { name: 'Predators', count: state.predators.length, prev: this.prevPredCount, color: '#cc5544' },
       { name: 'Scavengers', count: state.scavengers.length, prev: this.prevScavCount, color: '#ccaa44' },
+      { name: 'Insects', count: state.insects.length, prev: this.prevInsectCount, color: '#bb8822' },
     ];
 
     for (const { name, count, prev, color } of checks) {
@@ -570,6 +649,7 @@ export class Simulation {
     this.prevHerbCount = state.herbivores.length;
     this.prevPredCount = state.predators.length;
     this.prevScavCount = state.scavengers.length;
+    this.prevInsectCount = state.insects.length;
 
     // Weather changes
     if (state.weather.type !== this.prevWeatherType) {
@@ -622,6 +702,7 @@ export class Simulation {
       herbivores: [],
       predators: [],
       scavengers: [],
+      insects: [],
       corpses: [],
       nextId: 0,
       stats: this.emptyStats(),
@@ -636,17 +717,20 @@ export class Simulation {
       herbTraitMemory: [],
       predTraitMemory: [],
       scavTraitMemory: [],
+      insectTraitMemory: [],
       reintroductionTime: -Infinity,
       recentDeaths: new Map(),
     };
     this.herbHash.wrap = config.wrapWorld;
     this.predHash.wrap = config.wrapWorld;
     this.scavHash.wrap = config.wrapWorld;
+    this.insectHash.wrap = config.wrapWorld;
     this.diffusionAccum = 0;
     this.spawnQueues = this.createSpawnQueues(config);
     this.prevHerbCount = 0;
     this.prevPredCount = 0;
     this.prevScavCount = 0;
+    this.prevInsectCount = 0;
     this.milestones.clear();
     this.prevWeatherType = 'clear';
     this.prevLineageCounts.clear();

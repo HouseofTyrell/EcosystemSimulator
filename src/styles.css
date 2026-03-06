@@ -115,6 +115,7 @@ canvas {
 #stats .herbivore { color: #55ddaa; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
 #stats .predator { color: #ee6655; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
 #stats .scavenger-count { color: #ccaa44; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+#stats .insect-count { color: #bb8822; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
 #stats .plant { color: #55aa55; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
 #stats .season { color: #99aabb; }
 

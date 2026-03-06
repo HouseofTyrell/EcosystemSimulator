@@ -3,11 +3,11 @@
 
 import { Simulation } from './simulation';
 import type { MainToWorkerMessage, RenderSnapshot, CreatureSnapshot } from './worker-protocol';
-import type { Herbivore, Predator, Scavenger } from './types';
+import type { Herbivore, Predator, Scavenger, Insect } from './types';
 
 let sim: Simulation | null = null;
 
-function creatureToSnapshot(c: Herbivore | Predator | Scavenger): CreatureSnapshot {
+function creatureToSnapshot(c: Herbivore | Predator | Scavenger | Insect): CreatureSnapshot {
   const snap: CreatureSnapshot = {
     id: c.id,
     type: c.type,
@@ -51,6 +51,9 @@ function buildSnapshot(): RenderSnapshot {
   }
   for (let i = 0; i < state.scavengers.length; i++) {
     creatures.push(creatureToSnapshot(state.scavengers[i]));
+  }
+  for (let i = 0; i < state.insects.length; i++) {
+    creatures.push(creatureToSnapshot(state.insects[i]));
   }
 
   return {
@@ -107,6 +110,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
         sim.herbHash.wrap = wrap;
         sim.predHash.wrap = wrap;
         sim.scavHash.wrap = wrap;
+        sim.insectHash.wrap = wrap;
       }
       break;
     }
@@ -121,6 +125,7 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
       sim.state.config.maxHerbivores = msg.maxHerbivores;
       sim.state.config.maxPredators = msg.maxPredators;
       sim.state.config.maxScavengers = msg.maxScavengers;
+      sim.state.config.maxInsects = msg.maxInsects;
       break;
     }
   }

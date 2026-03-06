@@ -6,7 +6,7 @@ import type { SimState } from '../sim/types';
 import type { CameraState } from '../camera';
 import { SpritePool } from './sprite-pool';
 import { generateTextures, type GeneratedTextures } from './textures';
-import { HERB_SUBSPECIES, PRED_SUBSPECIES, SCAV_SUBSPECIES } from '../sim/subspecies';
+import { HERB_SUBSPECIES, PRED_SUBSPECIES, SCAV_SUBSPECIES, INSECT_SUBSPECIES } from '../sim/subspecies';
 import { paintTerrain } from './terrain-painter';
 
 export interface RendererOptions {
@@ -81,6 +81,7 @@ export class Renderer {
   // Layer containers
   private backgroundLayer: Graphics;
   private shadowContainer: Container;
+  private insectContainer: Container;
   private herbivoreContainer: Container;
   private scavengerContainer: Container;
   private predatorContainer: Container;
@@ -93,6 +94,7 @@ export class Renderer {
   private herbPool!: SpritePool;
   private scavPool!: SpritePool;
   private predPool!: SpritePool;
+  private insectPool!: SpritePool;
   private shadowPool!: SpritePool;
   private legContainer: Container;
   private legPool!: SpritePool;
@@ -131,6 +133,7 @@ export class Renderer {
     this.app = new Application();
     this.backgroundLayer = new Graphics();
     this.shadowContainer = new Container();
+    this.insectContainer = new Container();
     this.herbivoreContainer = new Container();
     this.scavengerContainer = new Container();
     this.predatorContainer = new Container();
@@ -198,6 +201,7 @@ export class Renderer {
     this.app.stage.addChild(this.fadeOverlay);
     this.app.stage.addChild(this.legContainer);
     this.app.stage.addChild(this.shadowContainer);
+    this.app.stage.addChild(this.insectContainer);
     this.app.stage.addChild(this.herbivoreContainer);
     this.app.stage.addChild(this.scavengerContainer);
     this.app.stage.addChild(this.predatorContainer);
@@ -208,6 +212,7 @@ export class Renderer {
     this.herbPool = new SpritePool(this.textures.herbivore, this.herbivoreContainer);
     this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
+    this.insectPool = new SpritePool(this.textures.insect, this.insectContainer);
     this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
     this.legPool = new SpritePool(this.textures.leg, this.legContainer);
     this.legPool.preallocate(4000);
@@ -216,6 +221,7 @@ export class Renderer {
     this.herbPool.preallocate(1200);
     this.predPool.preallocate(500);
     this.scavPool.preallocate(400);
+    this.insectPool.preallocate(800);
     this.shadowPool.preallocate(2200);
 
     this.ready = true;
@@ -276,7 +282,7 @@ export class Renderer {
 
     // LOD: reduce detail when creatures are tiny or when many are visible
     const creatureScreenPx = 4 * zoom;
-    const totalCreatures = state.herbivores.length + state.predators.length + state.scavengers.length;
+    const totalCreatures = state.herbivores.length + state.predators.length + state.scavengers.length + (state.insects?.length || 0);
     const lowDetail = creatureScreenPx < 4 || totalCreatures > 500;
 
     // === 1. Background ===
@@ -331,6 +337,7 @@ export class Renderer {
     this.herbPool.releaseAll();
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
+    this.insectPool.releaseAll();
     this.shadowPool.releaseAll();
     this.legPool.releaseAll();
 
@@ -583,6 +590,22 @@ export class Renderer {
           ring2.alpha = 0.9;
           ring2.scale.set(baseScale * 3.5);
         }
+      }
+    }
+
+    // === 9. Insects (tiny, minimal detail — no legs, no shadows at low detail) ===
+    if (state.insects) {
+      for (let i = 0; i < state.insects.length; i++) {
+        const ins = state.insects[i];
+        if (ins.pos.x < cullLeft || ins.pos.x > cullRight || ins.pos.y < cullTop || ins.pos.y > cullBottom) continue;
+        const sprite = this.insectPool.acquire();
+        sprite.x = ins.pos.x * scaleX;
+        sprite.y = ins.pos.y * scaleY;
+        const lineageTintI = hueShiftByLineage(INSECT_SUBSPECIES[ins.subspecies]?.hueBase || 0xbb8822, ins.lineageId, INSECT_SUBSPECIES[ins.subspecies]?.hueRange || 15);
+        sprite.tint = lineageTintI;
+        sprite.rotation = Math.atan2(ins.vel.y, ins.vel.x);
+        sprite.scale.set(ins.traits.size * scaleX * 0.28);
+        sprite.alpha = 1.0;
       }
     }
 

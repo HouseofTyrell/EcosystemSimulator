@@ -8,6 +8,7 @@ interface DataPoint {
   herbivores: number;
   predators: number;
   scavengers: number;
+  insects: number;
   plantDensity: number;
   avgHerbSpeed: number;
   avgHerbSize: number;
@@ -33,7 +34,7 @@ export class PopulationGraph {
 
     this.header = document.createElement('div');
     this.header.className = 'graph-header';
-    this.header.innerHTML = `<span>Population</span><span class="graph-legend"><span class="legend-dot" style="background:#55ddaa"></span>Herb <span class="legend-dot" style="background:#cc5544"></span>Pred <span class="legend-dot" style="background:#ccaa44"></span>Scav</span>`;
+    this.header.innerHTML = `<span>Population</span><span class="graph-legend"><span class="legend-dot" style="background:#55ddaa"></span>Herb <span class="legend-dot" style="background:#cc5544"></span>Pred <span class="legend-dot" style="background:#ccaa44"></span>Scav <span class="legend-dot" style="background:#bb8822"></span>Ins</span>`;
     this.panel.appendChild(this.header);
 
     this.traitCanvas = document.createElement('canvas');
@@ -94,6 +95,7 @@ export class PopulationGraph {
       herbivores: stats.herbivoreCount,
       predators: stats.predatorCount,
       scavengers: stats.scavengerCount,
+      insects: stats.insectCount,
       plantDensity: stats.plantDensity * 100,
       avgHerbSpeed: stats.avgHerbivoreSpeed,
       avgHerbSize: stats.avgHerbivoreSize,
@@ -132,7 +134,7 @@ export class PopulationGraph {
 
     let max = 1;
     for (const d of this.data) {
-      max = Math.max(max, d.herbivores, d.predators, d.scavengers);
+      max = Math.max(max, d.herbivores, d.predators, d.scavengers, d.insects);
     }
     max *= 1.1;
 
@@ -144,6 +146,7 @@ export class PopulationGraph {
     ctx.stroke();
 
     const lines: { key: keyof DataPoint; color: string }[] = [
+      { key: 'insects', color: '#bb8822' },
       { key: 'scavengers', color: '#ccaa44' },
       { key: 'predators', color: '#cc5544' },
       { key: 'herbivores', color: '#55ddaa' },
@@ -176,6 +179,7 @@ export class PopulationGraph {
         { value: latest.herbivores, color: '#55ddaa', label: `H: ${latest.herbivores}`, rawY: 0 },
         { value: latest.predators, color: '#cc5544', label: `P: ${latest.predators}`, rawY: 0 },
         { value: latest.scavengers, color: '#ccaa44', label: `S: ${latest.scavengers}`, rawY: 0 },
+        { value: latest.insects, color: '#bb8822', label: `I: ${latest.insects}`, rawY: 0 },
       ];
       // Calculate raw Y positions
       for (const lb of labels) {

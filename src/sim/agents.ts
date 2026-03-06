@@ -4,9 +4,11 @@ import type {
   Herbivore,
   Predator,
   Scavenger,
+  Insect,
   HerbivoreTraits,
   PredatorTraits,
   ScavengerTraits,
+  InsectTraits,
   Corpse,
   SimConfig,
   SimEvent,
@@ -19,7 +21,7 @@ import { SeededRNG } from './rng';
 import { SpatialHash } from './spatial';
 import { eatPlant, getPlantGradient } from './plants';
 import { getTerrainAt } from './terrain';
-import { clampHerbTraits, clampPredTraits, clampScavTraits } from './subspecies';
+import { clampHerbTraits, clampPredTraits, clampScavTraits, clampInsectTraits, INSECT_SUBSPECIES } from './subspecies';
 
 /** Density-dependent reproduction probability. Returns true if reproduction allowed. */
 function densityReproChance(currentPop: number, hardCap: number, rng: SeededRNG): boolean {
@@ -336,6 +338,58 @@ export function createScavenger(
   };
 }
 
+export function createInsect(
+  id: number,
+  x: number,
+  y: number,
+  rng: SeededRNG,
+  config: SimConfig,
+  parentTraits?: InsectTraits,
+  subspecies?: number
+): Insect {
+  const sub = subspecies ?? (rng.next() < 0.5 ? 0 : 1);
+  const traits: InsectTraits = parentTraits
+    ? mutateInsectTraits(parentTraits, rng, config)
+    : {
+        speed: rng.range(40, 80),
+        visionRange: rng.range(20, 50),
+        turnRate: rng.range(3, 7),
+        metabolism: rng.range(0.3, 1.0),
+        size: rng.range(0.8, 1.5),
+      };
+
+  clampInsectTraits(traits, sub);
+
+  const angle = rng.range(0, Math.PI * 2);
+  const spd = traits.speed * 0.3;
+
+  return {
+    type: 'insect',
+    id,
+    pos: { x, y },
+    vel: { x: Math.cos(angle) * spd, y: Math.sin(angle) * spd },
+    energy: 30,
+    age: 0,
+    maxAge: config.insectMaxAge + rng.range(-5, 5),
+    reproductionCooldown: config.insectReproductionCooldownTime,
+    alive: true,
+    lineageId: id,
+    generation: 0,
+    behavior: 'wandering',
+    stamina: 100,
+    exhausted: false,
+    lastThreatPos: null,
+    threatTimer: 0,
+    offspringCount: 0,
+    deathCause: null,
+    memory: null,
+    infected: 0,
+    subspecies: sub,
+    birthPos: { x, y },
+    traits,
+  };
+}
+
 // --- Mutation ---
 
 function mutateVal(val: number, rng: SeededRNG, config: SimConfig, min: number, max: number): number {
@@ -373,6 +427,16 @@ function mutateScavengerTraits(parent: ScavengerTraits, rng: SeededRNG, config: 
     turnRate: mutateVal(parent.turnRate, rng, config, 1, 8),
     metabolism: mutateVal(parent.metabolism, rng, config, 0.5, 6),
     size: mutateVal(parent.size, rng, config, 1, 7),
+  };
+}
+
+function mutateInsectTraits(parent: InsectTraits, rng: SeededRNG, config: SimConfig): InsectTraits {
+  return {
+    speed: mutateVal(parent.speed, rng, config, 20, 100),
+    visionRange: mutateVal(parent.visionRange, rng, config, 10, 80),
+    turnRate: mutateVal(parent.turnRate, rng, config, 1, 10),
+    metabolism: mutateVal(parent.metabolism, rng, config, 0.1, 2),
+    size: mutateVal(parent.size, rng, config, 0.5, 2),
   };
 }
 
@@ -907,6 +971,97 @@ export function steerScavenger(
   return _steerResult;
 }
 
+export function steerInsect(
+  ins: Insect,
+  state: SimState,
+  insectHash: SpatialHash<Insect>,
+  predHash: SpatialHash<Predator>,
+  rng: SeededRNG
+): Vec2 {
+  let fx = 0, fy = 0;
+  const config = state.config;
+  const vision = ins.traits.visionRange;
+  const hunger = 1 - Math.min(ins.energy / 40, 1);
+
+  // 1) Attraction to plant gradient (scaled by hunger)
+  const grad = getPlantGradient(state.plantGrid, ins.pos.x, ins.pos.y, config);
+  const plantStr = 40 * (0.3 + hunger * 0.7);
+  fx += grad.x * plantStr;
+  fy += grad.y * plantStr;
+
+  // 2) Flee from predators (insects are small — short vision)
+  const predBuf: Predator[] = [];
+  predHash.query(ins.pos, vision, predBuf);
+  for (let i = 0; i < predBuf.length; i++) {
+    const p = predBuf[i];
+    const delta = predHash.wrappedDelta(ins.pos, p.pos);
+    const d2 = delta.x * delta.x + delta.y * delta.y;
+    if (d2 < 1) continue;
+    const d = Math.sqrt(d2);
+    const strength = 80 * (1 - d / vision);
+    fx -= (delta.x / d) * strength;
+    fy -= (delta.y / d) * strength;
+  }
+
+  // 3) Flock with same subspecies (separation + cohesion)
+  const nearBuf: Insect[] = [];
+  insectHash.query(ins.pos, 25, nearBuf);
+  let cohX = 0, cohY = 0, cohCount = 0;
+  for (let i = 0; i < nearBuf.length; i++) {
+    const other = nearBuf[i];
+    if (other.id === ins.id) continue;
+    const delta = insectHash.wrappedDelta(ins.pos, other.pos);
+    const d2 = delta.x * delta.x + delta.y * delta.y;
+    if (d2 < 1) continue;
+    const d = Math.sqrt(d2);
+    // Separation
+    fx -= (delta.x / d) * (8 / d);
+    fy -= (delta.y / d) * (8 / d);
+    // Cohesion with same subspecies
+    if (other.subspecies === ins.subspecies) {
+      cohX += delta.x;
+      cohY += delta.y;
+      cohCount++;
+    }
+  }
+  if (cohCount > 0) {
+    fx += (cohX / cohCount) * 0.2;
+    fy += (cohY / cohCount) * 0.2;
+  }
+
+  // 4) Water/mountain avoidance (simplified — just check ahead)
+  const spd = Math.sqrt(ins.vel.x * ins.vel.x + ins.vel.y * ins.vel.y);
+  const aheadX = ins.pos.x + (ins.vel.x / (spd || 1)) * 15;
+  const aheadY = ins.pos.y + (ins.vel.y / (spd || 1)) * 15;
+  const t = getTerrainAt(state.terrain, aheadX, aheadY, config);
+  if (t === TerrainType.Water || t === TerrainType.Mountain) {
+    const dx = aheadX - ins.pos.x;
+    const dy = aheadY - ins.pos.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    fx -= (dx / d) * 120;
+    fy -= (dy / d) * 120;
+  }
+
+  // 5) Wander noise
+  fx += rng.gaussian(0, 15);
+  fy += rng.gaussian(0, 15);
+
+  // Boundary repulsion
+  const bnd = boundaryRepulsion(ins.pos, config);
+  fx += bnd.x;
+  fy += bnd.y;
+
+  // Set behavior
+  if (predBuf.length > 0) ins.behavior = 'fleeing';
+  else if (hunger > 0.5 && (grad.x * grad.x + grad.y * grad.y) > 0.01) ins.behavior = 'foraging';
+  else if (nearBuf.length > 2) ins.behavior = 'swarming';
+  else ins.behavior = 'wandering';
+
+  _steerResult.x = fx;
+  _steerResult.y = fy;
+  return _steerResult;
+}
+
 // --- Update ---
 
 export function updateHerbivores(
@@ -1117,7 +1272,8 @@ export function updatePredators(
   herbHash: SpatialHash<Herbivore>,
   predHash: SpatialHash<Predator>,
   rng: SeededRNG,
-  events: SimEvent[]
+  events: SimEvent[],
+  insectHash?: SpatialHash<Insect>
 ): Predator[] {
   const config = state.config;
   const newborns: Predator[] = [];
@@ -1181,6 +1337,27 @@ export function updatePredators(
             p.energy -= config.predatorAttackEnergy * 0.15;
           }
           p.attackTimer = p.traits.attackCooldown;
+          break;
+        }
+      }
+    }
+
+    // Secondary prey: insects (worth less energy)
+    if (p.attackTimer <= 0 && insectHash && p.energy <= config.predatorReproductionEnergy * 1.2) {
+      const insectBuf: Insect[] = [];
+      const insectRange = p.traits.size * 3 + 6;
+      insectHash.query(p.pos, insectRange, insectBuf);
+      for (let j = 0; j < insectBuf.length; j++) {
+        const ins = insectBuf[j];
+        if (!ins.alive) continue;
+        const delta = insectHash.wrappedDelta(p.pos, ins.pos);
+        const d2 = delta.x * delta.x + delta.y * delta.y;
+        if (d2 < insectRange * insectRange) {
+          ins.alive = false;
+          ins.deathCause = 'killed';
+          events.push({ type: 'death', creatureType: 'insect', x: ins.pos.x, y: ins.pos.y });
+          p.energy += 15; // insects worth less energy
+          p.attackTimer = p.traits.attackCooldown * 0.5; // shorter cooldown for small prey
           break;
         }
       }
@@ -1527,6 +1704,177 @@ export function updateScavengers(
         newborns.push(child);
         state.scavTraitMemory.push({ ...blendedTraits });
         if (state.scavTraitMemory.length > 50) state.scavTraitMemory.shift();
+      }
+    }
+  }
+
+  return newborns;
+}
+
+export function updateInsects(
+  state: SimState,
+  dt: number,
+  insectHash: SpatialHash<Insect>,
+  predHash: SpatialHash<Predator>,
+  rng: SeededRNG,
+  events: SimEvent[]
+): Insect[] {
+  const config = state.config;
+  const newborns: Insect[] = [];
+
+  for (let i = 0; i < state.insects.length; i++) {
+    const ins = state.insects[i];
+    if (!ins.alive) continue;
+
+    // Age
+    ins.age += dt;
+    const stage = getLifeStage(ins.age, ins.maxAge);
+    ins.reproductionCooldown = Math.max(0, ins.reproductionCooldown - dt);
+
+    // Metabolism — insects are tiny so very low cost
+    const spdI = Math.sqrt(ins.vel.x * ins.vel.x + ins.vel.y * ins.vel.y);
+    const relSpeedI = spdI / (ins.traits.speed || 1);
+    const speedCostI = ins.traits.speed * relSpeedI * relSpeedI * 0.003;
+    const baseMetaI = ins.traits.metabolism;
+    ins.energy -= (baseMetaI + speedCostI) * dt;
+
+    // Eat plants (subspecies-dependent rate and energy)
+    const subDef = INSECT_SUBSPECIES[ins.subspecies];
+    const eatRate = config.herbivoreEatRate * (subDef?.eatRateMultiplier ?? 0.4);
+    const eaten = eatPlant(
+      state.plantGrid,
+      ins.pos.x,
+      ins.pos.y,
+      eatRate * dt,
+      config
+    );
+    ins.energy += eaten * (subDef?.energyPerPlant ?? 12);
+
+    // Bee plant boost: when feeding, boost plant growth in nearby cells
+    if (eaten > 0 && subDef && subDef.plantBoostRadius > 0) {
+      const cellW = config.worldWidth / config.plantGridCols;
+      const cellH = config.worldHeight / config.plantGridRows;
+      const radius = subDef.plantBoostRadius;
+      const minCol = Math.max(0, Math.floor((ins.pos.x - radius) / cellW));
+      const maxCol = Math.min(config.plantGridCols - 1, Math.floor((ins.pos.x + radius) / cellW));
+      const minRow = Math.max(0, Math.floor((ins.pos.y - radius) / cellH));
+      const maxRow = Math.min(config.plantGridRows - 1, Math.floor((ins.pos.y + radius) / cellH));
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          const idx = row * config.plantGridCols + col;
+          const boost = 0.02 * dt; // gentle growth boost
+          state.plantGrid[idx] = Math.min(config.plantCarryingCapacity, state.plantGrid[idx] + boost);
+        }
+      }
+    }
+
+    // Steering
+    const steer = steerInsect(ins, state, insectHash, predHash, rng);
+    const turnRate = ins.traits.turnRate;
+    ins.vel.x += steer.x * turnRate * dt;
+    ins.vel.y += steer.y * turnRate * dt;
+
+    // Clamp speed
+    const spd = Math.sqrt(ins.vel.x * ins.vel.x + ins.vel.y * ins.vel.y);
+    const maxSpd = ins.traits.speed;
+    if (spd > maxSpd) {
+      ins.vel.x = (ins.vel.x / spd) * maxSpd;
+      ins.vel.y = (ins.vel.y / spd) * maxSpd;
+    }
+    if (spd < 5) {
+      const angle = rng.range(0, Math.PI * 2);
+      ins.vel.x = Math.cos(angle) * 10;
+      ins.vel.y = Math.sin(angle) * 10;
+    }
+
+    // Move
+    const spdMul = getSpeedMultiplier(stage);
+    ins.pos.x += ins.vel.x * dt * spdMul;
+    ins.pos.y += ins.vel.y * dt * spdMul;
+    // Wind drift (insects more affected)
+    if (state.weather.type === 'wind') {
+      const windForce = 25 * state.weather.intensity;
+      ins.pos.x += Math.cos(state.weather.windAngle) * windForce * dt;
+      ins.pos.y += Math.sin(state.weather.windAngle) * windForce * dt;
+    }
+    if (config.wrapWorld) {
+      ins.pos.x = ((ins.pos.x % config.worldWidth) + config.worldWidth) % config.worldWidth;
+      ins.pos.y = ((ins.pos.y % config.worldHeight) + config.worldHeight) % config.worldHeight;
+    } else {
+      if (ins.pos.x < 0) ins.pos.x = 0;
+      else if (ins.pos.x >= config.worldWidth) ins.pos.x = config.worldWidth - 0.1;
+      if (ins.pos.y < 0) ins.pos.y = 0;
+      else if (ins.pos.y >= config.worldHeight) ins.pos.y = config.worldHeight - 0.1;
+    }
+
+    // Death
+    if (ins.energy <= 0 || ins.age > ins.maxAge) {
+      ins.deathCause = ins.energy <= 0 ? 'starved' : 'old_age';
+      ins.alive = false;
+      events.push({ type: 'death', creatureType: 'insect', x: ins.pos.x, y: ins.pos.y });
+      continue;
+    }
+
+    // Reproduction: find nearby same-subspecies mate
+    if (
+      ins.energy > config.insectReproductionEnergy * (stage === 'elder' ? 2 : 1) &&
+      ins.reproductionCooldown <= 0 &&
+      stage !== 'baby' &&
+      state.insects.length + newborns.length < config.maxInsects &&
+      densityReproChance(state.insects.length, config.maxInsects, rng)
+    ) {
+      const mateBuf: Insect[] = [];
+      insectHash.query(ins.pos, 40, mateBuf);
+      let mate: Insect | null = null;
+      for (let mi = 0; mi < mateBuf.length; mi++) {
+        const m = mateBuf[mi];
+        if (m.id === ins.id) continue;
+        if (m.subspecies !== ins.subspecies) continue;
+        if (m.energy < config.insectReproductionEnergy * 0.5) continue;
+        if (m.reproductionCooldown > 0) continue;
+        const mStage = m.age / m.maxAge;
+        if (mStage < 0.15) continue;
+        mate = m;
+        break;
+      }
+
+      if (mate) {
+        const halfCost = config.insectReproductionCost / 2;
+        ins.energy -= halfCost;
+        mate.energy -= halfCost;
+        ins.reproductionCooldown = config.insectReproductionCooldownTime;
+        mate.reproductionCooldown = config.insectReproductionCooldownTime;
+        ins.offspringCount++;
+        mate.offspringCount++;
+
+        const midX = (ins.pos.x + mate.pos.x) / 2;
+        const midY = (ins.pos.y + mate.pos.y) / 2;
+        const childX = Math.max(0, Math.min(config.worldWidth - 0.1, midX + rng.range(-5, 5)));
+        const childY = Math.max(0, Math.min(config.worldHeight - 0.1, midY + rng.range(-5, 5)));
+
+        const blendedTraits = {} as InsectTraits;
+        const keys = Object.keys(ins.traits) as (keyof InsectTraits)[];
+        for (const key of keys) {
+          const t = 0.3 + rng.next() * 0.4;
+          blendedTraits[key] = ins.traits[key] * t + mate.traits[key] * (1 - t);
+        }
+
+        const child = createInsect(
+          state.nextId++,
+          childX,
+          childY,
+          rng,
+          config,
+          blendedTraits,
+          ins.subspecies
+        );
+        child.energy = config.insectReproductionCost * 0.6;
+        child.lineageId = ins.lineageId;
+        child.generation = Math.max(ins.generation, mate.generation) + 1;
+        events.push({ type: 'birth', creatureType: 'insect', x: child.pos.x, y: child.pos.y });
+        newborns.push(child);
+        state.insectTraitMemory.push({ ...blendedTraits });
+        if (state.insectTraitMemory.length > 50) state.insectTraitMemory.shift();
       }
     }
   }

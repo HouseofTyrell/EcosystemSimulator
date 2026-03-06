@@ -4,7 +4,7 @@ import type { RenderSnapshot, CreatureSnapshot, WorkerToMainMessage } from './wo
 
 export interface CreatureView {
   id: number;
-  type: 'herbivore' | 'predator' | 'scavenger';
+  type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
   pos: { x: number; y: number };
   vel: { x: number; y: number };
   energy: number;
@@ -40,6 +40,7 @@ export interface RenderState {
   herbivores: CreatureView[];
   predators: CreatureView[];
   scavengers: CreatureView[];
+  insects: CreatureView[];
   corpses: Corpse[];
   stats: SimStats;
   feedEvents: FeedEvent[];
@@ -121,6 +122,7 @@ export class SimWorkerClient {
       herbivores: [],
       predators: [],
       scavengers: [],
+      insects: [],
       corpses: [],
       stats: {
         herbivoreCount: 0,
@@ -146,6 +148,9 @@ export class SimWorkerClient {
         packHunterCount: 0,
         vultureCount: 0,
         beetleCount: 0,
+        insectCount: 0,
+        antCount: 0,
+        beeCount: 0,
       },
       feedEvents: [],
       weather: { type: 'clear', intensity: 0, duration: 0, remaining: 0, windAngle: 0 },
@@ -191,12 +196,13 @@ export class SimWorkerClient {
     this._renderState.config.worldHeight = height;
   }
 
-  setPopCaps(maxH: number, maxP: number, maxS: number): void {
+  setPopCaps(maxH: number, maxP: number, maxS: number, maxI: number = 3000): void {
     this.worker.postMessage({
       type: 'setPopCaps',
       maxHerbivores: maxH,
       maxPredators: maxP,
       maxScavengers: maxS,
+      maxInsects: maxI,
     });
   }
 
@@ -221,16 +227,19 @@ export class SimWorkerClient {
     const herbs: CreatureView[] = [];
     const preds: CreatureView[] = [];
     const scavs: CreatureView[] = [];
+    const insects: CreatureView[] = [];
     for (let i = 0; i < snap.creatures.length; i++) {
       const c = snap.creatures[i];
       const view = snapshotToView(c);
       if (c.type === 'herbivore') herbs.push(view);
       else if (c.type === 'predator') preds.push(view);
+      else if (c.type === 'insect') insects.push(view);
       else scavs.push(view);
     }
     rs.herbivores = herbs;
     rs.predators = preds;
     rs.scavengers = scavs;
+    rs.insects = insects;
   }
 
   destroy(): void {

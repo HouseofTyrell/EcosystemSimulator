@@ -67,6 +67,12 @@ export class Minimap {
     for (const s of state.scavengers) {
       ctx.fillRect(s.pos.x * sx, s.pos.y * sy, 1.5, 1.5);
     }
+    if (state.insects) {
+      ctx.fillStyle = '#c0a030';
+      for (const ins of state.insects) {
+        ctx.fillRect(ins.pos.x * sx, ins.pos.y * sy, 1, 1);
+      }
+    }
 
     // Viewport rectangle (screen size / zoom = visible world area)
     const vpW = (screenW || window.innerWidth) / camera.zoom;

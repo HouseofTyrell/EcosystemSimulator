@@ -6,7 +6,7 @@ const MAX_PINS = 3;
 
 export interface PinnedCreature {
   id: number;
-  type: 'herbivore' | 'predator' | 'scavenger';
+  type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
   deadSince: number | null;
   lastDeathCause: string | null;
   expanded: boolean;
@@ -45,6 +45,7 @@ export class CreatureInspector {
     for (const h of state.herbivores) check(h);
     for (const p of state.predators) check(p);
     for (const s of state.scavengers) check(s);
+    if (state.insects) for (const ins of state.insects) check(ins);
 
     if (!bestCreature) return false;
 
@@ -82,6 +83,7 @@ export class CreatureInspector {
       ...state.herbivores,
       ...state.predators,
       ...state.scavengers,
+      ...(state.insects || []),
     ];
     if (all.length === 0) return;
 
@@ -124,6 +126,7 @@ export class CreatureInspector {
   private findCreature(state: SimState, id: number, type: string): Creature | undefined {
     if (type === 'herbivore') return state.herbivores.find(h => h.id === id);
     if (type === 'predator') return state.predators.find(p => p.id === id);
+    if (type === 'insect') return state.insects?.find(ins => ins.id === id);
     return state.scavengers.find(s => s.id === id);
   }
 

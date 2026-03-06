@@ -3,7 +3,7 @@ import type { SimConfig, SimStats, FeedEvent, Corpse, WeatherState, ActiveEvent 
 
 export interface CreatureSnapshot {
   id: number;
-  type: 'herbivore' | 'predator' | 'scavenger';
+  type: 'herbivore' | 'predator' | 'scavenger' | 'insect';
   x: number;
   y: number;
   vx: number;
@@ -55,7 +55,7 @@ export type MainToWorkerMessage =
   | { type: 'reset'; seed?: number }
   | { type: 'setConfig'; key: string; value: number | boolean }
   | { type: 'setWorldSize'; width: number; height: number }
-  | { type: 'setPopCaps'; maxHerbivores: number; maxPredators: number; maxScavengers: number };
+  | { type: 'setPopCaps'; maxHerbivores: number; maxPredators: number; maxScavengers: number; maxInsects: number };
 
 export type WorkerToMainMessage =
   | { type: 'snapshot'; data: RenderSnapshot }

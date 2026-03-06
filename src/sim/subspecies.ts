@@ -1,4 +1,4 @@
-import type { HerbivoreTraits, PredatorTraits, ScavengerTraits } from './types';
+import type { HerbivoreTraits, PredatorTraits, ScavengerTraits, InsectTraits } from './types';
 
 export interface SubspeciesDef {
   name: string;
@@ -32,6 +32,17 @@ export interface ScavSubspeciesDef extends SubspeciesDef {
   metabolismRange: [number, number];
   eatSpeedMultiplier: number;
   reproductionCostMultiplier: number;
+}
+
+export interface InsectSubspeciesDef extends SubspeciesDef {
+  speedRange: [number, number];
+  sizeRange: [number, number];
+  visionRange: [number, number];
+  turnRateRange: [number, number];
+  metabolismRange: [number, number];
+  eatRateMultiplier: number;    // fraction of herbivore eat rate
+  energyPerPlant: number;       // energy gained per plant unit eaten
+  plantBoostRadius: number;     // 0 = none, >0 = boosts plant growth nearby (bees)
 }
 
 export const HERB_SUBSPECIES: HerbSubspeciesDef[] = [
@@ -111,6 +122,35 @@ export const SCAV_SUBSPECIES: ScavSubspeciesDef[] = [
   },
 ];
 
+export const INSECT_SUBSPECIES: InsectSubspeciesDef[] = [
+  {
+    name: 'Ant',
+    hueBase: 0x886633,
+    hueRange: 15,
+    speedRange: [40, 65],
+    sizeRange: [0.8, 1.2],
+    visionRange: [20, 45],
+    turnRateRange: [3, 6],
+    metabolismRange: [0.3, 0.8],
+    eatRateMultiplier: 0.5,
+    energyPerPlant: 15,
+    plantBoostRadius: 0,
+  },
+  {
+    name: 'Bee',
+    hueBase: 0xddaa22,
+    hueRange: 15,
+    speedRange: [55, 80],
+    sizeRange: [0.8, 1.5],
+    visionRange: [30, 60],
+    turnRateRange: [4, 7],
+    metabolismRange: [0.4, 1.0],
+    eatRateMultiplier: 0.3,
+    energyPerPlant: 10,
+    plantBoostRadius: 60,
+  },
+];
+
 /** Clamp a value to a range */
 export function clampRange(val: number, range: [number, number]): number {
   return Math.max(range[0], Math.min(range[1], val));
@@ -147,9 +187,20 @@ export function clampScavTraits(traits: ScavengerTraits, sub: number): void {
   traits.metabolism = clampRange(traits.metabolism, def.metabolismRange);
 }
 
+/** Clamp insect traits to subspecies ranges */
+export function clampInsectTraits(traits: InsectTraits, sub: number): void {
+  const def = INSECT_SUBSPECIES[sub];
+  traits.speed = clampRange(traits.speed, def.speedRange);
+  traits.size = clampRange(traits.size, def.sizeRange);
+  traits.visionRange = clampRange(traits.visionRange, def.visionRange);
+  traits.turnRate = clampRange(traits.turnRate, def.turnRateRange);
+  traits.metabolism = clampRange(traits.metabolism, def.metabolismRange);
+}
+
 /** Get subspecies name for any creature */
-export function getSubspeciesName(type: 'herbivore' | 'predator' | 'scavenger', sub: number): string {
+export function getSubspeciesName(type: 'herbivore' | 'predator' | 'scavenger' | 'insect', sub: number): string {
   if (type === 'herbivore') return HERB_SUBSPECIES[sub]?.name || 'Unknown';
   if (type === 'predator') return PRED_SUBSPECIES[sub]?.name || 'Unknown';
+  if (type === 'insect') return INSECT_SUBSPECIES[sub]?.name || 'Unknown';
   return SCAV_SUBSPECIES[sub]?.name || 'Unknown';
 }

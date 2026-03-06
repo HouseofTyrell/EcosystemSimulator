@@ -167,6 +167,7 @@ class App {
       for (const c of this.sim.renderState.herbivores) check(c);
       for (const c of this.sim.renderState.predators) check(c);
       for (const c of this.sim.renderState.scavengers) check(c);
+      for (const c of this.sim.renderState.insects) check(c);
 
       if (best) {
         const label = best.type.charAt(0).toUpperCase() + best.type.slice(1);
@@ -230,7 +231,8 @@ class App {
       const maxH = Math.round(200 + f * 4800);   // 200 – 5000
       const maxP = Math.round(80 + f * 1920);     // 80 – 2000
       const maxS = Math.round(60 + f * 1440);     // 60 – 1500
-      this.sim.setPopCaps(maxH, maxP, maxS);
+      const maxI = Math.round(100 + f * 2900);    // 100 – 3000
+      this.sim.setPopCaps(maxH, maxP, maxS, maxI);
     }
 
     if (!this.paused) {
@@ -254,7 +256,7 @@ class App {
 
     // Follow creature if tracking one
     if (this.camera.state.following !== null) {
-      const all = [...this.sim.renderState.herbivores, ...this.sim.renderState.predators, ...this.sim.renderState.scavengers];
+      const all = [...this.sim.renderState.herbivores, ...this.sim.renderState.predators, ...this.sim.renderState.scavengers, ...this.sim.renderState.insects];
       const target = all.find(c => c.id === this.camera.state.following);
       if (target) {
         this.camera.centerOn(target.pos.x, target.pos.y);
