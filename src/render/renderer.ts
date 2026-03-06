@@ -210,13 +210,13 @@ export class Renderer {
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
     this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
     this.legPool = new SpritePool(this.textures.leg, this.legContainer);
-    this.legPool.preallocate(2400);
+    this.legPool.preallocate(4000);
 
-    // Pre-allocate for up to 1000 creatures to avoid runtime stalls
-    this.herbPool.preallocate(800);
-    this.predPool.preallocate(250);
-    this.scavPool.preallocate(150);
-    this.shadowPool.preallocate(1200);
+    // Pre-allocate for up to 2000 visible creatures
+    this.herbPool.preallocate(1200);
+    this.predPool.preallocate(500);
+    this.scavPool.preallocate(400);
+    this.shadowPool.preallocate(2200);
 
     this.ready = true;
   }
@@ -274,9 +274,10 @@ export class Renderer {
     const cullTop = cy - halfH - margin;
     const cullBottom = cy + halfH + margin;
 
-    // LOD: skip per-creature effects when creatures are tiny on screen
+    // LOD: reduce detail when creatures are tiny or when many are visible
     const creatureScreenPx = 4 * zoom;
-    const lowDetail = creatureScreenPx < 4;
+    const totalCreatures = state.herbivores.length + state.predators.length + state.scavengers.length;
+    const lowDetail = creatureScreenPx < 4 || totalCreatures > 500;
 
     // === 1. Background ===
     this.backgroundLayer.clear();

@@ -5,8 +5,8 @@ export class Minimap {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private el: HTMLDivElement;
-  private static W = 120;
-  private static H = 68;
+  private static W = 100;
+  private static H = 100;
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
@@ -20,10 +20,6 @@ export class Minimap {
   }
 
   update(state: SimState, camera: CameraState): void {
-    if (camera.zoom < 1.2) {
-      this.el.style.display = 'none';
-      return;
-    }
     this.el.style.display = 'block';
 
     const ctx = this.ctx;
