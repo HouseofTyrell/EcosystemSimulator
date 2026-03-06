@@ -713,6 +713,9 @@ export class Renderer {
         this.terrainSprite.texture.destroy(true);
       }
       this.terrainSprite.texture = Texture.from(this.terrainCanvas);
+      // Scale up from half-res canvas to full world size
+      this.terrainSprite.width = this.worldW;
+      this.terrainSprite.height = this.worldH;
     }
     this.terrainDirty = false;
   }
