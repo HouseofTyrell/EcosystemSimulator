@@ -351,10 +351,10 @@ export class Simulation {
         state.corpses.push({
           x: h.pos.x,
           y: h.pos.y,
-          energy: Math.max(15, h.traits.size * 8 + Math.max(h.energy, 0) * 0.2),
+          energy: Math.max(20, h.traits.size * 10 + Math.max(h.energy, 0) * 0.25),
           creatureType: 'herbivore',
-          decayTimer: 20,
-          maxDecay: 20,
+          decayTimer: 30,
+          maxDecay: 30,
         });
       }
     }
@@ -364,10 +364,10 @@ export class Simulation {
         state.corpses.push({
           x: p.pos.x,
           y: p.pos.y,
-          energy: Math.max(15, p.traits.size * 8 + Math.max(p.energy, 0) * 0.2),
+          energy: Math.max(20, p.traits.size * 10 + Math.max(p.energy, 0) * 0.25),
           creatureType: 'predator',
-          decayTimer: 20,
-          maxDecay: 20,
+          decayTimer: 30,
+          maxDecay: 30,
         });
       }
     }
@@ -377,10 +377,10 @@ export class Simulation {
         state.corpses.push({
           x: s.pos.x,
           y: s.pos.y,
-          energy: Math.max(15, s.traits.size * 8 + Math.max(s.energy, 0) * 0.2),
+          energy: Math.max(20, s.traits.size * 10 + Math.max(s.energy, 0) * 0.25),
           creatureType: 'scavenger',
-          decayTimer: 20,
-          maxDecay: 20,
+          decayTimer: 30,
+          maxDecay: 30,
         });
       }
     }

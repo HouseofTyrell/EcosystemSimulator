@@ -329,7 +329,7 @@ export function createScavenger(
     ? mutateScavengerTraits(parentTraits, rng, config)
     : {
         speed: rng.range(35, 70),
-        visionRange: rng.range(50, 120),
+        visionRange: rng.range(80, 160),
         turnRate: rng.range(2, 5),
         metabolism: rng.range(1, 3),
         size: rng.range(1.5, 3.5),
@@ -899,7 +899,8 @@ export function steerScavenger(
   const vision = s.traits.visionRange * dayMods.visionMul * fogMul;
   const hunger = 1 - Math.min(s.energy / 80, 1);
 
-  // 1) Attraction to nearest corpse
+  // 1) Attraction to nearest corpse — scavengers can "smell" corpses beyond normal vision
+  const smellRange = Math.max(vision * 2, 300);
   let closestCorpseDist = Infinity;
   let closestCorpseDelta: Vec2 | null = null;
   for (let i = 0; i < state.corpses.length; i++) {
@@ -915,7 +916,7 @@ export function steerScavenger(
       else if (dy < -hh) dy += config.worldHeight;
     }
     const d2 = dx * dx + dy * dy;
-    if (d2 < vision * vision && d2 < closestCorpseDist) {
+    if (d2 < smellRange * smellRange && d2 < closestCorpseDist) {
       closestCorpseDist = d2;
       closestCorpseDelta = { x: dx, y: dy };
     }
@@ -1612,7 +1613,7 @@ export function updateScavengers(
     s.energy -= (baseMetaS + speedCostS + sizeCostS) * dt * scavPopFactor;
 
     // Eat corpses: check nearby corpses
-    const eatRange = s.traits.size * 3 + 10;
+    const eatRange = s.traits.size * 4 + 20;
     for (let j = 0; j < state.corpses.length; j++) {
       const c = state.corpses[j];
       let dx = c.x - s.pos.x;
