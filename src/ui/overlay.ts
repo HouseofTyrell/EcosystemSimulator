@@ -69,7 +69,7 @@ export class UIOverlay {
     const paintBtn = document.createElement('button');
     paintBtn.className = 'status-tool-btn';
     paintBtn.id = 'status-paint-btn';
-    paintBtn.textContent = 'Paint';
+    paintBtn.innerHTML = '<span class="btn-icon">\u270E</span> Paint';
     paintBtn.title = 'Paint terrain (P)';
     paintBtn.addEventListener('click', () => callbacks.onToolMode('paint'));
     this.bottomStatus.appendChild(paintBtn);
@@ -77,7 +77,7 @@ export class UIOverlay {
     const spawnBtn = document.createElement('button');
     spawnBtn.className = 'status-tool-btn';
     spawnBtn.id = 'status-spawn-btn';
-    spawnBtn.textContent = 'Spawn';
+    spawnBtn.innerHTML = '<span class="btn-icon">\u2726</span> Spawn';
     spawnBtn.title = 'Spawn creatures (B)';
     spawnBtn.addEventListener('click', () => callbacks.onToolMode('spawn'));
     this.bottomStatus.appendChild(spawnBtn);
@@ -608,5 +608,12 @@ export class UIOverlay {
 
   updateSeed(seed: number): void {
     this.seedEl.textContent = `seed: ${seed}`;
+  }
+
+  updateToolMode(mode: string): void {
+    const paintBtn = document.getElementById('status-paint-btn');
+    const spawnBtn = document.getElementById('status-spawn-btn');
+    if (paintBtn) paintBtn.classList.toggle('active', mode === 'paint');
+    if (spawnBtn) spawnBtn.classList.toggle('active', mode === 'spawn');
   }
 }

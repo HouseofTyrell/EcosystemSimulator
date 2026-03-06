@@ -182,12 +182,18 @@ canvas {
 }
 
 #settings.collapsed {
-  padding: 6px 14px;
+  padding: 8px 14px;
   min-width: auto;
-  border-radius: 6px;
-  background: rgba(10, 12, 20, 0.72);
-  border: 1px solid rgba(34, 51, 68, 0.5);
+  border-radius: 20px;
+  background: rgba(10, 12, 20, 0.82);
+  border: 1px solid rgba(68, 102, 136, 0.4);
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+#settings.collapsed:hover {
+  background: rgba(17, 25, 40, 0.92);
+  border-color: rgba(68, 102, 136, 0.7);
 }
 
 #settings.collapsed .settings-body {
@@ -199,7 +205,7 @@ canvas {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  color: #778899;
+  color: #8899aa;
   font-size: 11px;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -207,9 +213,9 @@ canvas {
 
 #settings.collapsed .settings-header {
   margin-bottom: 0;
-  color: #778899;
-  font-size: 11px;
-  gap: 6px;
+  color: #99aabb;
+  font-size: 12px;
+  gap: 8px;
 }
 
 #settings .setting-row {
@@ -313,17 +319,19 @@ canvas {
 #bottom-status {
   position: absolute;
   bottom: 16px;
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(10, 12, 20, 0.72);
-  border-radius: 6px;
-  border: 1px solid rgba(34, 51, 68, 0.3);
+  background: rgba(10, 12, 20, 0.82);
+  border-radius: 20px;
+  border: 1px solid rgba(34, 51, 68, 0.4);
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-variant-numeric: tabular-nums;
   z-index: 10;
   pointer-events: auto;
+  padding: 2px 4px;
 }
 
 #speed-indicator {
@@ -355,6 +363,16 @@ canvas {
 .status-tool-btn:hover {
   background: rgba(34, 51, 68, 0.8);
   color: #aabbcc;
+}
+
+.status-tool-btn.active {
+  background: rgba(68, 102, 136, 0.5);
+  color: #ddeeff;
+  border-color: rgba(68, 102, 136, 0.8);
+}
+
+.btn-icon {
+  font-size: 11px;
 }
 
 .status-sep {
@@ -391,7 +409,7 @@ canvas {
   position: absolute;
   bottom: 16px;
   right: 16px;
-  width: 180px;
+  width: 220px;
   background: rgba(10, 12, 20, 0.85);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -418,10 +436,11 @@ canvas {
 .graph-legend {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  gap: 4px;
+  font-size: 9px;
   color: #667788;
   letter-spacing: 0;
+  flex-wrap: wrap;
 }
 
 .legend-dot {
@@ -572,17 +591,17 @@ canvas {
   position: absolute;
   bottom: 164px;
   left: 16px;
-  width: min(260px, calc(100vw - 260px));
-  max-height: 200px;
+  width: min(220px, calc(100vw - 260px));
+  max-height: 160px;
   overflow-y: auto;
   pointer-events: auto;
-  font-size: 12px;
-  background: rgba(10, 12, 20, 0.85);
+  font-size: 11px;
+  background: rgba(10, 12, 20, 0.82);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(34, 51, 68, 0.5);
+  border: 1px solid rgba(34, 51, 68, 0.4);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 

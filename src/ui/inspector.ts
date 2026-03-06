@@ -76,19 +76,8 @@ export class CreatureInspector {
   }
 
   /** Auto-pin a random creature if nothing is pinned */
-  autoPin(state: SimState): void {
-    if (this.pinned.length > 0) return;
-
-    const all: Creature[] = [
-      ...state.herbivores,
-      ...state.predators,
-      ...state.scavengers,
-      ...(state.insects || []),
-    ];
-    if (all.length === 0) return;
-
-    const c = all[Math.floor(Math.random() * all.length)];
-    this.pinned.push({ id: c.id, type: c.type, deadSince: null, lastDeathCause: null, expanded: false });
+  autoPin(_state: SimState): void {
+    // Disabled — let users click creatures to inspect them
   }
 
   update(state: SimState, simTime: number): void {

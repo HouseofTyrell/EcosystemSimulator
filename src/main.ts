@@ -576,6 +576,7 @@ class App {
     this.toolMode = mode;
     this.isPainting = false;
     this.stampType = null;
+    this.ui.updateToolMode(mode);
 
     // Remove existing toolbar
     if (this.toolbarEl) {
