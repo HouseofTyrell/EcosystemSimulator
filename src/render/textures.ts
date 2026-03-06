@@ -6,7 +6,6 @@ export interface GeneratedTextures {
   scavenger: Texture;
   plant: Texture;
   particle: Texture;
-  glow: Texture;
   shadow: Texture;
 }
 
@@ -64,20 +63,6 @@ export function generateTextures(app: Application): GeneratedTextures {
     resolution: 2,
   });
 
-  // Glow: soft radial gradient blob for organic bioluminescence
-  const glowG = new Graphics();
-  const glowRadius = 14;
-  const glowSteps = 8;
-  for (let i = glowSteps; i >= 0; i--) {
-    const t = i / glowSteps;
-    const r = glowRadius * t;
-    const a = (1 - t) * (1 - t);
-    glowG.circle(0, 0, Math.max(r, 0.5));
-    glowG.fill({ color: 0xffffff, alpha: a });
-  }
-  const glow = app.renderer.generateTexture({ target: glowG, resolution: 2 });
-  glowG.destroy();
-
   // Shadow: soft dark oval for ground shadow beneath creatures
   const shadowG = new Graphics();
   const shadowSteps = 5;
@@ -99,5 +84,5 @@ export function generateTextures(app: Application): GeneratedTextures {
   plantG.destroy();
   partG.destroy();
 
-  return { herbivore, predator, scavenger, plant, particle, glow, shadow };
+  return { herbivore, predator, scavenger, plant, particle, shadow };
 }

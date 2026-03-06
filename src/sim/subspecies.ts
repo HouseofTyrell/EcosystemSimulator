@@ -37,7 +37,7 @@ export interface ScavSubspeciesDef extends SubspeciesDef {
 export const HERB_SUBSPECIES: HerbSubspeciesDef[] = [
   {
     name: 'Grazer',
-    hueBase: 0x44ccaa,
+    hueBase: 0x7a9a6a,
     hueRange: 20,
     speedRange: [35, 60],
     sizeRange: [3, 5],
@@ -47,7 +47,7 @@ export const HERB_SUBSPECIES: HerbSubspeciesDef[] = [
   },
   {
     name: 'Forager',
-    hueBase: 0x88dd44,
+    hueBase: 0x9aaa5a,
     hueRange: 20,
     speedRange: [60, 95],
     sizeRange: [1.5, 3],
@@ -60,7 +60,7 @@ export const HERB_SUBSPECIES: HerbSubspeciesDef[] = [
 export const PRED_SUBSPECIES: PredSubspeciesDef[] = [
   {
     name: 'Stalker',
-    hueBase: 0xee6644,
+    hueBase: 0xa06040,
     hueRange: 20,
     speedRange: [70, 100],
     sizeRange: [2.5, 4],
@@ -72,7 +72,7 @@ export const PRED_SUBSPECIES: PredSubspeciesDef[] = [
   },
   {
     name: 'Pack Hunter',
-    hueBase: 0xcc44aa,
+    hueBase: 0x7a4060,
     hueRange: 20,
     speedRange: [50, 80],
     sizeRange: [3, 5],
@@ -87,7 +87,7 @@ export const PRED_SUBSPECIES: PredSubspeciesDef[] = [
 export const SCAV_SUBSPECIES: ScavSubspeciesDef[] = [
   {
     name: 'Vulture',
-    hueBase: 0xddcc55,
+    hueBase: 0xb0a050,
     hueRange: 20,
     speedRange: [50, 80],
     sizeRange: [1.5, 3],
@@ -99,7 +99,7 @@ export const SCAV_SUBSPECIES: ScavSubspeciesDef[] = [
   },
   {
     name: 'Beetle',
-    hueBase: 0xaa7722,
+    hueBase: 0x6a5030,
     hueRange: 20,
     speedRange: [30, 55],
     sizeRange: [2, 4],

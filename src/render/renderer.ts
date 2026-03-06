@@ -1,7 +1,7 @@
 // PixiJS v8 renderer using pooled Sprites for efficient ecosystem rendering
 // Replaces per-frame Graphics redraws with sprite acquire/release pattern
 
-import { Application, Graphics, Container, Sprite, BlurFilter, RenderTexture, Texture } from 'pixi.js';
+import { Application, Graphics, Container, Sprite, RenderTexture, Texture } from 'pixi.js';
 import type { SimState } from '../sim/types';
 import type { CameraState } from '../camera';
 import { SpritePool } from './sprite-pool';
@@ -16,39 +16,6 @@ export interface RendererOptions {
   trails: boolean;
 }
 
-interface ActiveParticle {
-  sprite: Sprite;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-}
-
-interface AmbientParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  tint: number;
-  alpha: number;
-  scale: number;
-  type: 'mist' | 'pollen' | 'firefly';
-}
-
-
-function getLifeVisuals(age: number, maxAge: number): { scaleMul: number; tintMix: number; glowAlphaMul: number } {
-  const ratio = age / maxAge;
-  if (ratio < 0.15) {
-    return { scaleMul: 0.6, tintMix: 0, glowAlphaMul: 1.2 };
-  }
-  if (ratio < 0.75) {
-    return { scaleMul: 1.0, tintMix: 0, glowAlphaMul: 1.0 };
-  }
-  const elderProgress = (ratio - 0.75) / 0.25;
-  return { scaleMul: 0.9, tintMix: elderProgress * 0.4, glowAlphaMul: 1.0 - elderProgress * 0.5 };
-}
 
 function getNightAlpha(dayPhase: number): number {
   let nightIntensity: number;
@@ -106,25 +73,12 @@ function hueShiftByLineage(baseTint: number, lineageId: number, range: number): 
   return (nr << 16) | (ng << 8) | nb;
 }
 
-function mixTintGrey(tint: number, mix: number): number {
-  const r = (tint >> 16) & 0xff;
-  const g = (tint >> 8) & 0xff;
-  const b = tint & 0xff;
-  const grey = 0x88;
-  const nr = Math.round(r + (grey - r) * mix);
-  const ng = Math.round(g + (grey - g) * mix);
-  const nb = Math.round(b + (grey - b) * mix);
-  return (nr << 16) | (ng << 8) | nb;
-}
-
 export class Renderer {
   app: Application;
 
   // Layer containers
   private backgroundLayer: Graphics;
-  private particleContainer: Container;
   private shadowContainer: Container;
-  private glowContainer: Container;
   private herbivoreContainer: Container;
   private scavengerContainer: Container;
   private predatorContainer: Container;
@@ -137,8 +91,6 @@ export class Renderer {
   private herbPool!: SpritePool;
   private scavPool!: SpritePool;
   private predPool!: SpritePool;
-  private particlePool!: SpritePool;
-  private glowPool!: SpritePool;
   private shadowPool!: SpritePool;
 
   // Terrain cache
@@ -159,11 +111,6 @@ export class Renderer {
   // Textures
   private textures!: GeneratedTextures;
 
-  // Particles
-  private particles: ActiveParticle[] = [];
-  private ambientParticles: AmbientParticle[] = [];
-  private ambientSprites: Sprite[] = []; // frame-only sprites to release next frame
-
   // State
   private trails: boolean;
   private trailFadeAlpha: number = 0.03;
@@ -177,9 +124,7 @@ export class Renderer {
   constructor() {
     this.app = new Application();
     this.backgroundLayer = new Graphics();
-    this.particleContainer = new Container();
     this.shadowContainer = new Container();
-    this.glowContainer = new Container();
     this.herbivoreContainer = new Container();
     this.scavengerContainer = new Container();
     this.predatorContainer = new Container();
@@ -237,9 +182,7 @@ export class Renderer {
     this.app.stage.addChild(this.vegSprite);
     this.app.stage.addChild(this.trailLayer);
     this.app.stage.addChild(this.fadeOverlay);
-    this.app.stage.addChild(this.particleContainer);
     this.app.stage.addChild(this.shadowContainer);
-    this.app.stage.addChild(this.glowContainer);
     this.app.stage.addChild(this.herbivoreContainer);
     this.app.stage.addChild(this.scavengerContainer);
     this.app.stage.addChild(this.predatorContainer);
@@ -250,21 +193,13 @@ export class Renderer {
     this.herbPool = new SpritePool(this.textures.herbivore, this.herbivoreContainer);
     this.scavPool = new SpritePool(this.textures.scavenger, this.scavengerContainer);
     this.predPool = new SpritePool(this.textures.predator, this.predatorContainer);
-    this.particlePool = new SpritePool(this.textures.particle, this.particleContainer);
-    this.glowPool = new SpritePool(this.textures.glow, this.glowContainer);
     this.shadowPool = new SpritePool(this.textures.shadow, this.shadowContainer);
 
     // Pre-allocate for up to 1000 creatures to avoid runtime stalls
     this.herbPool.preallocate(800);
     this.predPool.preallocate(250);
     this.scavPool.preallocate(150);
-    this.glowPool.preallocate(1200);
     this.shadowPool.preallocate(1200);
-
-    // Bloom effect on glows
-    this.glowContainer.filters = [new BlurFilter({ strength: 5, quality: 2 })];
-    this.glowContainer.blendMode = 'add';
-    this.particleContainer.blendMode = 'add';
 
     this.ready = true;
   }
@@ -325,11 +260,6 @@ export class Renderer {
     // LOD: skip per-creature effects when creatures are tiny on screen
     const creatureScreenPx = 4 * zoom;
     const lowDetail = creatureScreenPx < 4;
-    const totalCreatures = state.herbivores.length + state.predators.length + state.scavengers.length;
-    const skipParticles = totalCreatures > 300;
-
-    const nightAlpha = this.dayNightEnabled ? getNightAlpha(state.dayPhase) : 0;
-    const nightGlowBoost = 1 + nightAlpha * 1.5; // Glows 60% brighter at full night
 
     // === 1. Background ===
     this.backgroundLayer.clear();
@@ -343,7 +273,6 @@ export class Renderer {
 
     const isDawn = state.dayPhase < 0.2;
     const isDusk = state.dayPhase > 0.55 && state.dayPhase < 0.75;
-    const isNight = state.dayPhase > 0.75 || state.dayPhase < 0.05;
 
     // === 2. Trails ===
     if (this.trails) {
@@ -384,7 +313,6 @@ export class Renderer {
     this.herbPool.releaseAll();
     this.scavPool.releaseAll();
     this.predPool.releaseAll();
-    this.glowPool.releaseAll();
     this.shadowPool.releaseAll();
 
     // === 4. Terrain (cached) ===
@@ -441,13 +369,13 @@ export class Renderer {
 
         if (selectedIds && selectedIds.includes(h.id)) {
           const baseScale = h.traits.size * scaleX * 0.28;
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintH;
@@ -455,17 +383,15 @@ export class Renderer {
           ring2.scale.set(baseScale * 3.5);
         }
       } else {
-        // Base scale from size trait with breathing animation
-        const life = getLifeVisuals(h.age, h.maxAge);
-        if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintH, life.tintMix);
-        const baseScale = h.traits.size * scaleX * 0.28 * life.scaleMul;
+        // Age-based scale: young=0.6, old=0.9, else 1.0
+        const ageRatio = h.age / h.maxAge;
+        const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
+        const baseScale = h.traits.size * scaleX * 0.28 * ageSclMul;
         const breathe = 1 + 0.04 * Math.sin(time * 3 + h.id * 0.7);
         sprite.scale.set(baseScale * breathe);
 
-        // Alpha — solid creatures from satellite view
-        let alpha = 0.8 + Math.min(h.traits.visionRange / 150, 1) * 0.2;
-        if (h.energy < 25) alpha *= Math.max(0.5, h.energy / 25);
-        sprite.alpha = alpha;
+        // Simplified matte alpha
+        sprite.alpha = h.energy < 25 ? Math.max(0.5, h.energy / 25) * 0.9 : 0.9;
 
         // Ground shadow
         const shadowH = this.shadowPool.acquire();
@@ -475,23 +401,14 @@ export class Renderer {
         shadowH.scale.set(baseScale * 1.1);
         shadowH.alpha = 0.3;
 
-        const glowH = this.glowPool.acquire();
-        glowH.x = sprite.x;
-        glowH.y = sprite.y;
-        glowH.tint = lineageTintH;
-        const lineageSizeH = state.lineageCounts?.get(h.lineageId) || 1;
-        const dominanceGlowH = lineageSizeH >= 10 ? 0.8 : lineageSizeH >= 5 ? 0.6 : 0.35;
-        glowH.alpha = Math.min(1, (dominanceGlowH + 0.1 * Math.sin(time * 2 + h.id)) * life.glowAlphaMul * nightGlowBoost);
-        glowH.scale.set(baseScale * 2.0);
-
         if (selectedIds && selectedIds.includes(h.id)) {
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintH;
@@ -519,13 +436,13 @@ export class Renderer {
 
         if (selectedIds && selectedIds.includes(p.id)) {
           const baseScale = p.traits.size * scaleX * 0.28;
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintP;
@@ -533,19 +450,17 @@ export class Renderer {
           ring2.scale.set(baseScale * 3.5);
         }
       } else {
-        // Base scale from size trait with prowl animation
-        const life = getLifeVisuals(p.age, p.maxAge);
-        if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintP, life.tintMix);
-        const baseScale = p.traits.size * scaleX * 0.28 * life.scaleMul;
+        // Age-based scale
+        const ageRatio = p.age / p.maxAge;
+        const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
+        const baseScale = p.traits.size * scaleX * 0.28 * ageSclMul;
         const prowlPhase = Math.sin(time * 4 + p.id * 0.5);
         const sx = baseScale * (1 + 0.06 * prowlPhase);
         const sy = baseScale * (1 - 0.03 * prowlPhase);
         sprite.scale.set(sx, sy);
 
-        // Alpha — solid creatures from satellite view
-        let alpha = 0.85 + Math.min(p.traits.visionRange / 200, 1) * 0.15;
-        if (p.energy < 25) alpha *= Math.max(0.5, p.energy / 25);
-        sprite.alpha = alpha;
+        // Simplified matte alpha
+        sprite.alpha = p.energy < 25 ? Math.max(0.5, p.energy / 25) * 0.9 : 0.9;
 
         // Ground shadow
         const shadowP = this.shadowPool.acquire();
@@ -555,23 +470,14 @@ export class Renderer {
         shadowP.scale.set(baseScale * 1.1);
         shadowP.alpha = 0.3;
 
-        const glowP = this.glowPool.acquire();
-        glowP.x = sprite.x;
-        glowP.y = sprite.y;
-        glowP.tint = lineageTintP;
-        const lineageSizeP = state.lineageCounts?.get(p.lineageId) || 1;
-        const dominanceGlowP = lineageSizeP >= 10 ? 0.8 : lineageSizeP >= 5 ? 0.6 : 0.35;
-        glowP.alpha = Math.min(1, (dominanceGlowP + 0.1 * Math.sin(time * 2 + p.id)) * life.glowAlphaMul * nightGlowBoost);
-        glowP.scale.set(baseScale * 2.0);
-
         if (selectedIds && selectedIds.includes(p.id)) {
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintP;
@@ -598,13 +504,13 @@ export class Renderer {
 
         if (selectedIds && selectedIds.includes(s.id)) {
           const baseScale = s.traits.size * scaleX * 0.28;
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintS;
@@ -612,14 +518,15 @@ export class Renderer {
           ring2.scale.set(baseScale * 3.5);
         }
       } else {
-        const life = getLifeVisuals(s.age, s.maxAge);
-        if (life.tintMix > 0) sprite.tint = mixTintGrey(lineageTintS, life.tintMix);
-        const baseScale = s.traits.size * scaleX * 0.28 * life.scaleMul;
+        // Age-based scale
+        const ageRatio = s.age / s.maxAge;
+        const ageSclMul = ageRatio < 0.15 ? 0.6 : ageRatio > 0.75 ? 0.9 : 1.0;
+        const baseScale = s.traits.size * scaleX * 0.28 * ageSclMul;
         const breathe = 1 + 0.04 * Math.sin(time * 2.5 + s.id * 0.9);
         sprite.scale.set(baseScale * breathe);
-        let alpha = 0.8 + Math.min(s.traits.visionRange / 150, 1) * 0.2;
-        if (s.energy < 25) alpha *= Math.max(0.5, s.energy / 25);
-        sprite.alpha = alpha;
+
+        // Simplified matte alpha
+        sprite.alpha = s.energy < 25 ? Math.max(0.5, s.energy / 25) * 0.9 : 0.9;
 
         // Ground shadow
         const shadowS = this.shadowPool.acquire();
@@ -629,23 +536,14 @@ export class Renderer {
         shadowS.scale.set(baseScale * 1.0);
         shadowS.alpha = 0.3;
 
-        const glowS = this.glowPool.acquire();
-        glowS.x = sprite.x;
-        glowS.y = sprite.y;
-        glowS.tint = lineageTintS;
-        const lineageSizeS = state.lineageCounts?.get(s.lineageId) || 1;
-        const dominanceGlowS = lineageSizeS >= 10 ? 0.8 : lineageSizeS >= 5 ? 0.6 : 0.35;
-        glowS.alpha = Math.min(1, (dominanceGlowS + 0.1 * Math.sin(time * 2 + s.id)) * life.glowAlphaMul * nightGlowBoost);
-        glowS.scale.set(baseScale * 2.0);
-
         if (selectedIds && selectedIds.includes(s.id)) {
-          const ring = this.glowPool.acquire();
+          const ring = this.shadowPool.acquire();
           ring.x = sprite.x;
           ring.y = sprite.y;
           ring.tint = 0xffffff;
           ring.alpha = 0.7 + 0.3 * Math.sin(time * 4);
           ring.scale.set(baseScale * 5);
-          const ring2 = this.glowPool.acquire();
+          const ring2 = this.shadowPool.acquire();
           ring2.x = sprite.x;
           ring2.y = sprite.y;
           ring2.tint = lineageTintS;
@@ -653,161 +551,6 @@ export class Renderer {
           ring2.scale.set(baseScale * 3.5);
         }
       }
-    }
-
-    // === 9. Process events ===
-    if (!skipParticles) {
-    for (let i = 0; i < state.events.length; i++) {
-      const ev = state.events[i];
-      const ex = ev.x * scaleX;
-      const ey = ev.y * scaleY;
-
-      if (ev.type === 'death') {
-        // Gentle drifting particles
-        for (let j = 0; j < 6; j++) {
-          const angle = (j / 6) * Math.PI * 2 + Math.random() * 0.5;
-          const speed = 15 + Math.random() * 20;
-          const sprite = this.particlePool.acquire();
-          sprite.x = ex;
-          sprite.y = ey;
-          sprite.tint = ev.creatureType === 'herbivore' ? 0x44cc77 : ev.creatureType === 'scavenger' ? 0xccaa44 : 0xee6655;
-          sprite.alpha = 0.9;
-          sprite.scale.set(1.2);
-
-          this.particles.push({
-            sprite,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 5, // slight upward drift
-            life: 1.5,
-            maxLife: 1.5,
-          });
-        }
-      } else if (ev.type === 'birth') {
-        // Gentle sparkle burst
-        const birthTint = ev.creatureType === 'herbivore' ? 0xaaffcc :
-                          ev.creatureType === 'predator' ? 0xffaa88 : 0xffeebb;
-        for (let j = 0; j < 3; j++) {
-          const sprite = this.particlePool.acquire();
-          sprite.x = ex;
-          sprite.y = ey;
-          sprite.tint = birthTint;
-          sprite.alpha = 0.9;
-          sprite.scale.set(1.5);
-
-          this.particles.push({
-            sprite,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10 - 8, // float upward
-            life: 1.2,
-            maxLife: 1.2,
-          });
-        }
-      }
-    }
-    } // end skipParticles check
-
-    // === 9. Update active particles ===
-    const dt = 1 / 60;
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const part = this.particles[i];
-      part.life -= dt;
-
-      if (part.life <= 0) {
-        this.particlePool.release(part.sprite);
-        this.particles.splice(i, 1);
-        continue;
-      }
-
-      part.sprite.x += part.vx * dt;
-      part.sprite.y += part.vy * dt;
-
-      const t = part.life / part.maxLife;
-      part.sprite.alpha = t;
-      part.sprite.scale.set(t * 0.8);
-    }
-
-    // === Ambient particles (mist, pollen, fireflies) ===
-    // Release sprites from previous frame
-    for (let i = 0; i < this.ambientSprites.length; i++) {
-      this.particlePool.release(this.ambientSprites[i]);
-    }
-    this.ambientSprites.length = 0;
-
-    const maxAmbient = 40; // Fixed cap for performance at scale
-
-    // Spawn new particles
-    while (this.ambientParticles.length < maxAmbient) {
-      const roll = Math.random();
-      if (isNight && roll < 0.4) {
-        // Firefly
-        this.ambientParticles.push({
-          x: Math.random() * this.worldW,
-          y: Math.random() * this.worldH,
-          vx: (Math.random() - 0.5) * 3,
-          vy: (Math.random() - 0.5) * 3,
-          life: 4 + Math.random() * 4,
-          maxLife: 8,
-          tint: 0xffeebb,
-          alpha: 0.25,
-          scale: 0.3,
-          type: 'firefly',
-        });
-      } else if (roll < 0.6) {
-        // Mist near water (light-blue, drifts upward)
-        this.ambientParticles.push({
-          x: Math.random() * this.worldW,
-          y: Math.random() * this.worldH,
-          vx: (Math.random() - 0.5) * 2,
-          vy: -0.5 - Math.random() * 0.5,
-          life: 3 + Math.random() * 3,
-          maxLife: 6,
-          tint: 0x8899cc,
-          alpha: 0.12,
-          scale: 0.5,
-          type: 'mist',
-        });
-      } else {
-        // Pollen over vegetation (drifts with wind)
-        this.ambientParticles.push({
-          x: Math.random() * this.worldW,
-          y: Math.random() * this.worldH,
-          vx: (Math.random() - 0.5) * 4 + (state.weather.type === 'wind' ? state.weather.intensity * 8 : 0),
-          vy: (Math.random() - 0.5) * 2,
-          life: 2 + Math.random() * 3,
-          maxLife: 5,
-          tint: 0xaacc55,
-          alpha: 0.1,
-          scale: 0.25,
-          type: 'pollen',
-        });
-      }
-    }
-
-    // Update and render ambient particles
-    for (let i = this.ambientParticles.length - 1; i >= 0; i--) {
-      const ap = this.ambientParticles[i];
-      ap.x += ap.vx * dt;
-      ap.y += ap.vy * dt;
-      ap.life -= dt;
-      if (ap.life <= 0 || ap.x < -10 || ap.x > this.worldW + 10 || ap.y < -10 || ap.y > this.worldH + 10) {
-        this.ambientParticles.splice(i, 1);
-        continue;
-      }
-
-      const sprite = this.particlePool.acquire();
-      sprite.texture = this.textures.particle;
-      sprite.x = ap.x;
-      sprite.y = ap.y;
-      sprite.tint = ap.tint;
-      const fadeRatio = ap.life / ap.maxLife;
-      let alpha = ap.alpha * fadeRatio;
-      // Firefly pulsing
-      if (ap.type === 'firefly') {
-        alpha *= 0.5 + 0.5 * Math.sin(time * 3 + i * 1.7);
-      }
-      sprite.alpha = Math.max(0, alpha);
-      sprite.scale.set(ap.scale);
-      this.ambientSprites.push(sprite);
     }
 
     // === Weather visuals ===
@@ -842,22 +585,17 @@ export class Renderer {
       }
 
       if (state.weather.type === 'fog') {
-        // Subtle flat tint base
         this.weatherLayer
           .rect(0, 0, this.worldW, this.worldH)
           .fill({ color: 0xddddcc, alpha: wi * 0.08 });
-
-        // Volumetric fog blobs using glow sprites
-        const fogCount = Math.floor(3 + wi * 4);
+        const fogCount = Math.floor(2 + wi * 3);
         for (let f = 0; f < fogCount; f++) {
-          const fogSprite = this.glowPool.acquire();
           const seed = f * 137.5;
-          fogSprite.texture = this.textures.glow;
-          fogSprite.x = ((seed + time * 5) % this.worldW);
-          fogSprite.y = ((seed * 2.3 + time * 3) % this.worldH);
-          fogSprite.tint = 0xccccbb;
-          fogSprite.alpha = wi * 0.12;
-          fogSprite.scale.set(20 + wi * 15);
+          const fogX = ((seed * 7 + time * 3) % this.worldW);
+          const fogY = ((seed * 11 + time * 2) % this.worldH);
+          this.weatherLayer
+            .circle(fogX, fogY, 80 + wi * 60)
+            .fill({ color: 0xddddcc, alpha: wi * 0.08 });
         }
       }
 
@@ -980,31 +718,9 @@ export class Renderer {
       this.vegCanvas.height = height;
       this.vegUpdateCounter = 15; // force refresh
     }
-
-    // Clear particles on resize
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      this.particlePool.release(this.particles[i].sprite);
-    }
-    this.particles.length = 0;
-    this.ambientParticles.length = 0;
-    for (let i = 0; i < this.ambientSprites.length; i++) {
-      this.particlePool.release(this.ambientSprites[i]);
-    }
-    this.ambientSprites.length = 0;
   }
 
   destroy(): void {
-    // Clean up particles
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      this.particlePool.release(this.particles[i].sprite);
-    }
-    this.particles.length = 0;
-    this.ambientParticles.length = 0;
-    for (let i = 0; i < this.ambientSprites.length; i++) {
-      this.particlePool.release(this.ambientSprites[i]);
-    }
-    this.ambientSprites.length = 0;
-
     this.app.destroy(true);
   }
 }
